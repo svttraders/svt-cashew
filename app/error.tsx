@@ -16,36 +16,36 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-[70vh] bg-[#FAF6EE] flex items-center justify-center px-4 py-16">
-      <div className="max-w-md w-full bg-[#FFFDF9] p-8 rounded-3xl border border-[#E2DACB] shadow-lg text-center space-y-6">
-        <div className="w-16 h-16 bg-rose-100 text-rose-700 rounded-full flex items-center justify-center mx-auto">
-          <AlertTriangle className="w-8 h-8" />
+    <div className="min-h-[70vh] bg-navy-950 text-slate-100 flex items-center justify-center px-4 py-16">
+      <div className="max-w-md w-full bg-[#141E30] p-8 rounded-3xl border border-[#D4AF37]/30 shadow-2xl text-center space-y-6">
+        <div className="w-16 h-16 bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+          <AlertTriangle className="w-8 h-8 text-[#D4AF37]" strokeWidth={2} />
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-black font-display text-[#193324]">
+          <h2 className="text-2xl font-black font-heading text-white">
             Something Went Wrong
           </h2>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            An unexpected error occurred. Please try refreshing the page or return to the storefront homepage.
+          <p className="text-xs text-slate-400 leading-relaxed">
+            An unexpected error occurred while loading this page. You can reload or return to the shop.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <button
             onClick={() => reset()}
-            className="flex-1 py-3 px-4 bg-[#193324] text-[#FAF6EE] font-bold text-xs rounded-full hover:bg-[#132B1D] transition-colors flex items-center justify-center space-x-2"
+            className="flex-1 py-3 px-4 bg-[#D4AF37] text-navy-950 font-black text-xs uppercase tracking-wider rounded-xl hover:brightness-110 transition-all flex items-center justify-center space-x-2 shadow-md"
           >
-            <RefreshCw className="w-4 h-4 text-[#D4AF37]" />
+            <RefreshCw className="w-4 h-4" />
             <span>Try Again</span>
           </button>
 
           <Link
             href="/"
-            className="flex-1 py-3 px-4 bg-[#F5F0E6] border border-[#E2DACB] text-slate-800 font-bold text-xs rounded-full hover:bg-[#EFE8D8] transition-colors flex items-center justify-center space-x-2"
+            className="flex-1 py-3 px-4 bg-white/5 border border-white/10 text-slate-200 font-bold text-xs rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center space-x-2"
           >
-            <Home className="w-4 h-4 text-[#193324]" />
-            <span>Go Home</span>
+            <Home className="w-4 h-4 text-[#D4AF37]" />
+            <span>Back to Store</span>
           </Link>
         </div>
       </div>

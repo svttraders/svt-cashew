@@ -5,6 +5,7 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 import CartDrawer from '@/components/cart-drawer';
 import SchemaOrg from '@/components/schema-org';
+import FestivalThemeProvider from '@/components/theme-provider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -54,11 +55,13 @@ export default function RootLayout({
       <head>
         <SchemaOrg />
       </head>
-      <body className="flex flex-col min-h-screen bg-[#FAF8F5]">
-        <Header />
-        <CartDrawer />
-        <main className="flex-1">{children}</main>
-        <Footer />
+      <body className="flex flex-col min-h-screen antialiased">
+        <FestivalThemeProvider>
+          <Header />
+          <CartDrawer />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </FestivalThemeProvider>
       </body>
     </html>
   );

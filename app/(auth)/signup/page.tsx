@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { Lock, Mail, ArrowRight, User as UserIcon, ShieldCheck, KeyRound, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Lock, Mail, ArrowRight, User as UserIcon, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, CheckCircle2, AlertCircle, X, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function SignupPage() {
@@ -21,6 +21,14 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
+
+  // Email delivery status popup modal
+  const [statusPopup, setStatusPopup] = useState<{
+    show: boolean;
+    status: 'SUCCESS' | 'ERROR';
+    title: string;
+    description: string;
+  } | null>(null);
 
   useEffect(() => {
     let interval: any;
@@ -60,6 +68,7 @@ export default function SignupPage() {
     e.preventDefault();
     setError(null);
     setInfoMessage(null);
+    setStatusPopup(null);
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long.');
@@ -83,13 +92,31 @@ export default function SignupPage() {
       setResendTimer(60);
       setCanResend(false);
 
-      if (data.devOtp) {
-        setInfoMessage(`Development code simulated: ${data.devOtp} (Credentials not yet set in .env.local)`);
+      if (data.emailSent) {
+        setStatusPopup({
+          show: true,
+          status: 'SUCCESS',
+          title: 'Verification Email Sent Successfully! ✓',
+          description: `A 6-digit OTP code has been delivered to ${email}. Please check your Inbox and Spam/Junk folder.`,
+        });
+        setInfoMessage(`Verification code dispatched to ${email}. Check your inbox.`);
       } else {
-        setInfoMessage(`We've sent a 6-digit verification code to ${email}`);
+        setStatusPopup({
+          show: true,
+          status: 'ERROR',
+          title: 'Email Delivery Notice',
+          description: data.emailError || 'Email could not be dispatched via SMTP. Check your connection or spam folder.',
+        });
+        setInfoMessage(`Code generated. Please check server logs or retry.`);
       }
     } catch (err: any) {
       setError(err.message || 'Error sending verification code.');
+      setStatusPopup({
+        show: true,
+        status: 'ERROR',
+        title: 'Failed to Send Code',
+        description: err.message || 'Unable to communicate with email server.',
+      });
     } finally {
       setLoading(false);
     }
@@ -100,6 +127,7 @@ export default function SignupPage() {
     if (!canResend) return;
     setError(null);
     setLoading(true);
+    setStatusPopup(null);
     try {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
@@ -111,10 +139,21 @@ export default function SignupPage() {
 
       setResendTimer(60);
       setCanResend(false);
-      if (data.devOtp) {
-        setInfoMessage(`Resent code simulated: ${data.devOtp}`);
+      if (data.emailSent) {
+        setStatusPopup({
+          show: true,
+          status: 'SUCCESS',
+          title: 'Fresh Verification Code Sent! ✓',
+          description: `A new 6-digit OTP has been dispatched to ${email}. Check your inbox.`,
+        });
+        setInfoMessage(`A fresh verification code was dispatched to ${email}.`);
       } else {
-        setInfoMessage(`A fresh verification code was dispatched to ${email}`);
+        setStatusPopup({
+          show: true,
+          status: 'ERROR',
+          title: 'Email Delivery Notice',
+          description: data.emailError || 'Email could not be dispatched.',
+        });
       }
     } catch (err: any) {
       setError(err.message || 'Failed to resend code.');
@@ -160,7 +199,15 @@ export default function SignupPage() {
       }
     } catch (err: any) {
       console.error('Signup verification error:', err);
-      setError(err.message || 'Failed to complete signup. Please try again.');
+      if (err.code === 'auth/operation-not-allowed') {
+        setError('Email/Password provider is disabled in Firebase Console. Please enable "Email/Password" under Firebase Console -> Authentication -> Sign-in method.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('This email is already registered. Please click "Sign In" below.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password is too weak. Please use at least 6 characters.');
+      } else {
+        setError(err.message || 'Failed to complete signup. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -196,16 +243,73 @@ export default function SignupPage() {
           </p>
         </div>
 
+        {/* High-Visibility Email Delivery Status Pop-Up Modal */}
+        {statusPopup && statusPopup.show && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/80 backdrop-blur-sm animate-fade-in">
+            <div className={`w-full max-w-sm rounded-2xl p-5 border shadow-2xl space-y-4 relative ${
+              statusPopup.status === 'SUCCESS'
+                ? 'bg-navy-900 border-emerald-500/50 text-white'
+                : 'bg-navy-900 border-amber-500/50 text-white'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setStatusPopup(null)}
+                className="absolute top-3.5 right-3.5 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-start space-x-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  statusPopup.status === 'SUCCESS'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                }`}>
+                  {statusPopup.status === 'SUCCESS' ? (
+                    <CheckCircle2 className="w-6 h-6" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6" />
+                  )}
+                </div>
+                <div className="space-y-1 pr-4">
+                  <h3 className="font-bold font-heading text-sm text-white">
+                    {statusPopup.title}
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {statusPopup.description}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setStatusPopup(null)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                    statusPopup.status === 'SUCCESS'
+                      ? 'bg-emerald-500 hover:bg-emerald-400 text-navy-950 font-black'
+                      : 'bg-[#D4AF37] hover:brightness-110 text-navy-950 font-black'
+                  }`}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Error / Info Alerts */}
         {error && (
-          <div className="p-3 bg-rose-500/10 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 text-center">
-            {error}
+          <div className="p-3 bg-rose-500/10 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 text-center flex items-center justify-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+            <span>{error}</span>
           </div>
         )}
 
         {infoMessage && (
-          <div className="p-3 bg-[#D4AF37]/10 text-[#D4AF37] text-xs font-semibold rounded-xl border border-[#D4AF37]/30 text-center leading-relaxed">
-            {infoMessage}
+          <div className="p-3 bg-emerald-500/10 text-emerald-300 text-xs font-semibold rounded-xl border border-emerald-500/30 text-center leading-relaxed flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span>{infoMessage}</span>
           </div>
         )}
 

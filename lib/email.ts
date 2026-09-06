@@ -9,9 +9,10 @@ interface SendOtpOptions {
 export async function sendOtpEmail({ to, name = 'Valued Customer', otp }: SendOtpOptions): Promise<{ success: boolean; simulated?: boolean; error?: string }> {
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
   const port = parseInt(process.env.SMTP_PORT || '587', 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || `"Sidhi Vinayaka Traders" <noreply@svtcashews.com>`;
+  const user = process.env.SMTP_USER?.trim();
+  // Strip spaces if user pasted a 16-character Google App Password with spaces
+  const pass = process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '').trim() : undefined;
+  const from = process.env.SMTP_FROM || `"Sidhi Vinayaka Traders" <${user || 'noreply@svtcashews.com'}>`;
 
   // Graceful simulation if credentials are not yet configured in .env
   if (!user || !pass) {
@@ -26,15 +27,26 @@ export async function sendOtpEmail({ to, name = 'Valued Customer', otp }: SendOt
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: {
-        user,
-        pass,
-      },
-    });
+    const isGmail = host.includes('gmail.com') || (user && user.endsWith('@gmail.com'));
+    const transporter = nodemailer.createTransport(
+      isGmail
+        ? {
+            service: 'gmail',
+            auth: {
+              user,
+              pass,
+            },
+          }
+        : {
+            host,
+            port,
+            secure: port === 465,
+            auth: {
+              user,
+              pass,
+            },
+          }
+    );
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -91,7 +103,7 @@ export async function sendOtpEmail({ to, name = 'Valued Customer', otp }: SendOt
 
     return { success: true };
   } catch (err: any) {
-    console.error('Nodemailer sendOtpEmail error:', err);
-    return { success: false, error: err.message || 'Failed to send verification email' };
+    console.warn('[SVT Email Warning] Nodemailer sendOtpEmail failed:', err.message || err);
+    return { success: false, error: 'Email service temporarily unavailable. Please try again.' };
   }
 }

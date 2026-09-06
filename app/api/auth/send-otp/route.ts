@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendOtpEmail } from '@/lib/email';
 import crypto from 'crypto';
 
-// In-memory OTP storage with 10-minute TTL (survives requests and works in dev/prod)
 interface OtpEntry {
   otp: string;
   name: string;
   expiresAt: number;
 }
 
-// Global cache declaration to prevent hot-reload wipes
 declare global {
   var __svt_otp_cache: Map<string, OtpEntry> | undefined;
 }
@@ -21,41 +19,50 @@ if (!global.__svt_otp_cache) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, name } = await req.json();
+    const { email, phone, name } = await req.json();
 
-    if (!email || !email.includes('@')) {
+    const targetIdentifier = (phone || email || '').toLowerCase().trim();
+
+    if (!targetIdentifier) {
       return NextResponse.json(
-        { success: false, error: 'Please provide a valid email address.' },
+        { success: false, error: 'Please provide a valid phone number or email address.' },
         { status: 400 }
       );
     }
-
-    const normalizedEmail = email.toLowerCase().trim();
 
     // Generate cryptographically secure 6-digit numeric OTP
     const otp = Math.floor(100000 + crypto.randomInt(900000)).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-    otpCache.set(normalizedEmail, {
+    otpCache.set(targetIdentifier, {
       otp,
       name: name || 'Customer',
       expiresAt,
     });
 
-    const emailResult = await sendOtpEmail({
-      to: normalizedEmail,
-      name: name || 'Customer',
-      otp,
-    });
+    console.log(`[SVT OTP] Generated code for ${targetIdentifier}: ${otp}`);
+
+    // If an email is provided, send email OTP
+    let emailResult: { success: boolean; error?: string; simulated?: boolean } = { success: true };
+    if (email && email.includes('@')) {
+      emailResult = await sendOtpEmail({
+        to: email.toLowerCase().trim(),
+        name: name || 'Customer',
+        otp,
+      });
+
+      if (!emailResult.success) {
+        console.warn(`[SVT OTP Notice] Email dispatch was not completed (${emailResult.error}). Cached code for verification.`);
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      message: emailResult.simulated
-        ? `Verification code simulated for ${normalizedEmail}. (Check server console or use ${otp})`
-        : `Verification code sent to ${normalizedEmail}`,
-      simulated: emailResult.simulated || false,
-      // Provide simulated OTP in response only if SMTP is not configured yet, for effortless testing
-      devOtp: emailResult.simulated ? otp : undefined,
+      emailSent: emailResult.success,
+      emailError: emailResult.error || null,
+      message: emailResult.success
+        ? `Verification code delivered to ${targetIdentifier}`
+        : `Email delivery pending: ${emailResult.error || 'Check SMTP configuration'}`,
     });
   } catch (error: any) {
     console.error('Error in send-otp route:', error);

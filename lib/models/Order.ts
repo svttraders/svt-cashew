@@ -6,6 +6,7 @@ export interface IOrderItem {
   size: string;
   quantity: number;
   price: number;
+  image?: string;
 }
 
 export interface ICustomerDetails {
@@ -24,10 +25,16 @@ export interface IOrder extends Document {
   customerDetails: ICustomerDetails;
   items: IOrderItem[];
   totalAmount: number;
-  paymentMethod: 'UPI' | 'COD' | 'CARD';
-  paymentStatus: 'PENDING' | 'PAID';
+  paymentMethod: 'UPI' | 'COD' | 'CARD' | 'ONLINE';
+  paymentStatus: 'PENDING' | 'PAID' | 'FAILED';
   fulfillmentStatus: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED';
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
+  trackingNumber?: string;
+  courierPartner?: string;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const OrderSchema: Schema = new Schema<IOrder>(
@@ -50,17 +57,18 @@ const OrderSchema: Schema = new Schema<IOrder>(
         size: { type: String, required: true },
         quantity: { type: Number, required: true },
         price: { type: Number, required: true },
+        image: { type: String },
       },
     ],
     totalAmount: { type: Number, required: true },
     paymentMethod: {
       type: String,
-      enum: ['UPI', 'COD', 'CARD'],
-      default: 'UPI',
+      enum: ['UPI', 'COD', 'CARD', 'ONLINE'],
+      default: 'ONLINE',
     },
     paymentStatus: {
       type: String,
-      enum: ['PENDING', 'PAID'],
+      enum: ['PENDING', 'PAID', 'FAILED'],
       default: 'PENDING',
     },
     fulfillmentStatus: {
@@ -68,6 +76,11 @@ const OrderSchema: Schema = new Schema<IOrder>(
       enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'],
       default: 'PENDING',
     },
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
+    razorpaySignature: { type: String },
+    trackingNumber: { type: String },
+    courierPartner: { type: String },
   },
   { timestamps: true }
 );

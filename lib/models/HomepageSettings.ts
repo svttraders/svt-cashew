@@ -1,4 +1,8 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import { ICategoryFeatureCard, DEFAULT_CATEGORY_CARDS } from '@/lib/category-cards';
+
+export type { ICategoryFeatureCard };
+export { DEFAULT_CATEGORY_CARDS };
 
 export interface IHomepageSettings extends Document {
   heroTitle: string;
@@ -16,8 +20,24 @@ export interface IHomepageSettings extends Document {
   secondaryImageUrl: string;
   secondaryButtonText: string;
   secondaryButtonLink: string;
+  categoryCards?: ICategoryFeatureCard[];
   updatedAt: Date;
 }
+
+const CategoryFeatureCardSchema = new Schema<ICategoryFeatureCard>({
+  id: { type: String, required: true },
+  title: { type: String, required: true },
+  subtitle: { type: String, default: '' },
+  badgeText: { type: String, default: 'Featured' },
+  badgeIcon: { type: String, default: 'sparkles' },
+  badgeVariant: { type: String, default: 'gold' },
+  linkUrl: { type: String, default: '/#shop' },
+  linkText: { type: String, default: 'Explore Products' },
+  imageUrl: { type: String, default: '/images/raw_cashews_hero.webp' },
+  accentColor: { type: String, default: '#D4AF37' },
+  isActive: { type: Boolean, default: true },
+  order: { type: Number, default: 0 },
+});
 
 const HomepageSettingsSchema: Schema = new Schema<IHomepageSettings>(
   {
@@ -51,12 +71,16 @@ const HomepageSettingsSchema: Schema = new Schema<IHomepageSettings>(
     },
     secondaryButtonText: { type: String, default: 'Explore Flavours' },
     secondaryButtonLink: { type: String, default: '/category/flavored' },
+    categoryCards: {
+      type: [CategoryFeatureCardSchema],
+      default: DEFAULT_CATEGORY_CARDS,
+    },
   },
   { timestamps: true }
 );
 
-const HomepageSettings: Model<IHomepageSettings> =
-  mongoose.models.HomepageSettings ||
+export const HomepageSettings: Model<IHomepageSettings> =
+  (mongoose?.models?.HomepageSettings) ||
   mongoose.model<IHomepageSettings>('HomepageSettings', HomepageSettingsSchema);
 
 export default HomepageSettings;

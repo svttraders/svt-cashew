@@ -41,6 +41,23 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, isActive, ...updates } = body;
+    const db = await connectToDatabase();
+
+    if (db && Coupon && id) {
+      const updated = await Coupon.findByIdAndUpdate(id, { $set: { isActive, ...updates } }, { new: true });
+      return NextResponse.json({ success: true, coupon: updated });
+    }
+
+    return NextResponse.json({ success: true, message: 'Updated (Mock Mode)' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -55,3 +72,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+

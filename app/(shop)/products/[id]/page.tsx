@@ -9,7 +9,8 @@ import { useCartStore } from '@/lib/cart-store';
 import { Product, INITIAL_PRODUCTS } from '@/lib/mock-data';
 import { 
   Star, ShoppingBag, Check, Flame, ArrowLeft, 
-  ChevronRight, Minus, Plus, ShieldCheck, Truck, Sparkles
+  ChevronRight, Minus, Plus, ShieldCheck, Truck, Sparkles,
+  Heart, Zap, Shield, CheckCircle2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,22 +20,69 @@ export default function ProductDetailPage() {
   const idOrSlug = params.id as string;
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedSize, setSelectedSize] = useState<string>('500g');
   const [quantity, setQuantity] = useState<number>(1);
   const [added, setAdded] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   const addItem = useCartStore((state) => state.addItem);
 
   useEffect(() => {
-    const found = INITIAL_PRODUCTS.find(
-      (p) => p.slug === idOrSlug || p._id === idOrSlug
-    );
-    if (found) {
-      setProduct(found);
-      setSelectedSize(found.weightOptions[0] || '500g');
+    async function loadProduct() {
+      setLoading(true);
+      try {
+        // Try direct single product endpoint
+        const res = await fetch(`/api/products/${idOrSlug}`);
+        const data = await res.json();
+        if (data.success && data.product) {
+          setProduct(data.product);
+          setSelectedSize(data.product.weightOptions?.[0] || '500g');
+        } else {
+          // Fallback to searching mock data
+          const found = INITIAL_PRODUCTS.find(
+            (p) => p.slug === idOrSlug || p._id === idOrSlug
+          );
+          if (found) {
+            setProduct(found);
+            setSelectedSize(found.weightOptions?.[0] || '500g');
+          }
+        }
+
+        // Fetch all products for related recommendations
+        const allRes = await fetch('/api/products');
+        const allData = await allRes.json();
+        if (allData.success && allData.products) {
+          setAllProducts(allData.products);
+        }
+      } catch (err) {
+        console.warn('Fallback product detail:', err);
+        const found = INITIAL_PRODUCTS.find(
+          (p) => p.slug === idOrSlug || p._id === idOrSlug
+        );
+        if (found) {
+          setProduct(found);
+          setSelectedSize(found.weightOptions?.[0] || '500g');
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (idOrSlug) {
+      loadProduct();
     }
   }, [idOrSlug]);
+
+  if (loading && !product) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-24 text-center space-y-4 bg-navy-950 text-slate-100 min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs text-slate-400">Loading gourmet cashew details...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -50,13 +98,28 @@ export default function ProductDetailPage() {
   }
 
   const getCalculatedPrice = (size: string) => {
+    if (size === '250g') return Math.round(product.price * 0.55);
     if (size === '1kg') return Math.round(product.price * 1.9);
+    if (size === '2kg') return Math.round(product.price * 3.75);
     if (size === '5kg Wholesale') return Math.round(product.price * 9.2);
     return product.price;
   };
 
   const unitPrice = getCalculatedPrice(selectedSize);
   const totalPrice = unitPrice * quantity;
+
+  const originalPrice = product.originalPrice || Math.round(product.price * 1.15);
+  const calculatedOriginalPrice = Math.round(
+    originalPrice * (selectedSize === '1kg' ? 1.9 : selectedSize === '250g' ? 0.55 : 1) * quantity
+  );
+  const discountPercent =
+    product.discountPercent ||
+    (originalPrice > product.price
+      ? Math.round(((originalPrice - product.price) / originalPrice) * 100)
+      : 0);
+
+  const stock = product.stockQuantity ?? 100;
+  const isLowStock = stock <= (product.lowStockThreshold ?? 15);
 
   const handleAddToCart = () => {
     addItem({
@@ -67,14 +130,14 @@ export default function ProductDetailPage() {
       size: selectedSize,
       quantity: quantity,
       price: unitPrice,
-      image: product.images[0] || '',
+      image: product.images[0] || '/images/raw_cashews_hero.webp',
     });
 
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
-  const relatedProducts = INITIAL_PRODUCTS.filter(p => p._id !== product._id).slice(0, 3);
+  const relatedProducts = allProducts.filter(p => p._id !== product._id).slice(0, 3);
 
   return (
     <div className="bg-navy-950 min-h-screen text-slate-100 pb-20">
@@ -93,66 +156,71 @@ export default function ProductDetailPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           
-          {/* Left: Interactive Image Gallery with Supporting Views */}
+          {/* Left: Interactive Multi-Image Gallery */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="relative aspect-square rounded-3xl overflow-hidden glass-panel p-2 border border-white/10 shadow-elevated group">
+            <div className="relative aspect-square rounded-3xl overflow-hidden glass-panel p-2 border border-white/10 shadow-elevated group bg-navy-900">
               <Image
                 src={product.images[activeImageIndex] || product.images[0] || "/images/raw_cashews_hero.webp"}
-                alt={`${product.title} - ${['Primary Signature Shot', 'Macro Texture & Grade', 'Roastery Serving View', 'Vacuum Pack Shot'][activeImageIndex] || 'Product Angle'}`}
+                alt={`${product.title} view ${activeImageIndex + 1}`}
                 fill
                 className="object-cover rounded-2xl group-hover:scale-105 transition-transform duration-500 ease-out"
                 priority
               />
 
               {/* View Badge */}
-              <div className="absolute top-4 left-4 z-10">
+              <div className="absolute top-4 left-4 z-10 flex gap-2">
                 <span className="px-3 py-1 rounded-full bg-navy-950/80 backdrop-blur-md border border-white/10 text-[11px] font-semibold text-[#D4AF37] shadow-md">
-                  {activeImageIndex === 0 ? 'Primary Image' : `Supporting Angle 0${activeImageIndex}`}
+                  {activeImageIndex === 0 ? 'Primary Image' : `Gallery View 0${activeImageIndex + 1}`}
                 </span>
+                {product.badgeText && (
+                  <span className="px-3 py-1 rounded-full bg-[#D4AF37] text-navy-950 text-[11px] font-black uppercase shadow-md">
+                    {product.badgeText}
+                  </span>
+                )}
               </div>
 
               {/* Gallery Dots */}
-              <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-10">
-                {product.images.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveImageIndex(idx)}
-                    className={`h-2 rounded-full transition-all ${
-                      activeImageIndex === idx ? 'bg-[#D4AF37] w-6' : 'bg-white/40 w-2 hover:bg-white/70'
-                    }`}
-                    aria-label={`Show image ${idx + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Supporting Gallery Thumbnails with Labels */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 font-medium">
-                <span>Supporting Angles ({product.images.length} views)</span>
-                <span className="text-[#D4AF37]">Click to preview</span>
-              </div>
-              <div className="grid grid-cols-4 gap-3">
-                {product.images.map((img, idx) => {
-                  const labels = ['Primary', 'Texture', 'Serving', 'Packaging'];
-                  return (
+              {product.images.length > 1 && (
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-10">
+                  {product.images.map((_, idx) => (
                     <button
                       key={idx}
                       onClick={() => setActiveImageIndex(idx)}
-                      className={`relative aspect-square rounded-xl overflow-hidden border bg-navy-900 transition-all group ${
-                        activeImageIndex === idx ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50 shadow-md scale-102' : 'border-white/10 opacity-70 hover:opacity-100 hover:border-white/25'
+                      className={`h-2 rounded-full transition-all ${
+                        activeImageIndex === idx ? 'bg-[#D4AF37] w-6' : 'bg-white/40 w-2 hover:bg-white/70'
+                      }`}
+                      aria-label={`Show image ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Gallery Thumbnails */}
+            {product.images.length > 1 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 font-medium">
+                  <span>Product Views ({product.images.length} photos)</span>
+                  <span className="text-[#D4AF37]">Click angle to switch</span>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  {product.images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`relative aspect-square rounded-xl overflow-hidden border bg-navy-900 transition-all ${
+                        activeImageIndex === idx
+                          ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50 shadow-md scale-102'
+                          : 'border-white/10 opacity-70 hover:opacity-100 hover:border-white/25'
                       }`}
                       aria-label={`Thumbnail ${idx + 1}`}
                     >
-                      <Image src={img} alt={`${product.title} angle ${idx + 1}`} fill className="object-cover" />
-                      <span className="absolute bottom-1 inset-x-1 py-0.5 bg-navy-950/80 backdrop-blur-sm rounded text-[9px] font-bold text-center text-slate-200 truncate">
-                        {labels[idx] || `View ${idx + 1}`}
-                      </span>
+                      <Image src={img} alt={`Angle ${idx + 1}`} fill className="object-cover" />
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Right: Product Specs & Breakdown */}
@@ -162,15 +230,18 @@ export default function ProductDetailPage() {
                 {product.category === 'RAW' ? (
                   <Badge variant="gold">
                     <Sparkles className="w-3 h-3 text-[#D4AF37]" strokeWidth={2} />
-                    <span>Grade {product.grade || 'W180'} King Jumbo</span>
+                    <span>Grade {product.grade || 'W180'} Supreme Raw</span>
                   </Badge>
                 ) : (
                   <Badge variant="spice">
                     <Flame className="w-3 h-3 text-rose-400" strokeWidth={2} />
-                    <span>Slow-Roasted {product.flavor || 'Masala'}</span>
+                    <span>Roasted {product.flavor || 'Masala'}</span>
                   </Badge>
                 )}
-                <span className="text-xs text-emerald-400 font-semibold">• In Stock (Uppal Hub)</span>
+
+                <span className={`text-xs font-semibold ${isLowStock ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  • {product.isAvailable ? (isLowStock ? `Low Stock (Only ${stock} kg left)` : 'In Stock (Uppal Direct)') : 'Temporarily Out of Stock'}
+                </span>
               </div>
 
               <h1 className="text-2xl sm:text-4xl font-extrabold font-heading text-white tracking-tight">
@@ -185,27 +256,50 @@ export default function ProductDetailPage() {
                   ))}
                 </div>
                 <span className="text-xs text-slate-400 font-medium">
-                  {product.rating || 4.9} ({product.reviewsCount || 178} verified reviews)
+                  {product.rating || 5.0} ({product.reviewsCount || 180} verified reviews)
                 </span>
               </div>
             </div>
 
-            {/* Price Showcase */}
-            <div className="flex items-baseline space-x-3 p-4 rounded-2xl bg-navy-900/60 border border-white/5">
-              <span className="text-3xl font-black text-white font-heading">₹{totalPrice}</span>
-              {product.originalPrice && (
+            {/* Price Showcase with Discount Badge */}
+            <div className="flex items-baseline space-x-3 p-4 rounded-2xl bg-navy-900/80 border border-white/10 shadow-md">
+              <span className="text-3xl sm:text-4xl font-black text-white font-heading">₹{totalPrice}</span>
+              {calculatedOriginalPrice > totalPrice && (
                 <span className="text-sm text-slate-400 line-through">
-                  ₹{Math.round(product.originalPrice * (selectedSize === '1kg' ? 1.9 : 1) * quantity)}
+                  ₹{calculatedOriginalPrice}
+                </span>
+              )}
+              {discountPercent > 0 && (
+                <span className="text-xs font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                  {discountPercent}% OFF
                 </span>
               )}
               <span className="text-xs text-[#D4AF37] font-semibold ml-auto">
-                ₹{Math.round(unitPrice / (selectedSize === '1kg' ? 1000 : 500) * 100)} per 100g
+                ₹{Math.round(unitPrice / (selectedSize === '1kg' ? 1000 : selectedSize === '250g' ? 250 : 500) * 100)} per 100g
               </span>
             </div>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               {product.description}
             </p>
+
+            {/* Health Benefits Highlights */}
+            {product.benefits && product.benefits.length > 0 && (
+              <div className="p-4 rounded-2xl bg-navy-900/60 border border-white/5 space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>Key Quality & Health Benefits</span>
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                  {product.benefits.map((b, i) => (
+                    <div key={i} className="flex items-center space-x-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>{b}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* SPICE BREAKDOWN MODULE */}
             {product.spiceBreakdown && product.spiceBreakdown.length > 0 && (
@@ -233,7 +327,7 @@ export default function ProductDetailPage() {
                 Pack Size
               </label>
               <div className="flex flex-wrap gap-2.5">
-                {product.weightOptions.map((opt) => (
+                {(product.weightOptions || ['250g', '500g', '1kg']).map((opt) => (
                   <button
                     key={opt}
                     onClick={() => setSelectedSize(opt)}
@@ -272,13 +366,20 @@ export default function ProductDetailPage() {
 
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 py-3.5 gold-cta-button font-bold text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg"
+                  disabled={!product.isAvailable}
+                  className={`flex-1 py-3.5 font-bold text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg rounded-xl transition-all ${
+                    !product.isAvailable
+                      ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                      : 'gold-cta-button text-navy-950'
+                  }`}
                 >
                   {added ? (
                     <>
                       <Check className="w-4 h-4 text-navy-950" strokeWidth={2.5} />
                       <span>ADDED TO CART</span>
                     </>
+                  ) : !product.isAvailable ? (
+                    <span>OUT OF STOCK</span>
                   ) : (
                     <>
                       <ShoppingBag className="w-4 h-4 text-navy-950" strokeWidth={2} />
@@ -296,7 +397,7 @@ export default function ProductDetailPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Truck className="w-4 h-4 text-[#D4AF37]" strokeWidth={1.75} />
-                  <span>Express Delivery Across Hyderabad</span>
+                  <span>Express Dispatch & Razorpay Secured</span>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
-import HomepageSettings from '@/lib/models/HomepageSettings';
+import { HomepageSettings, DEFAULT_CATEGORY_CARDS } from '@/lib/models/HomepageSettings';
 
 const DEFAULT_SETTINGS = {
   heroTitle: 'Supreme Quality Handpicked Cashews',
@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
   secondaryImageUrl: '/images/tandoori_cashews_hero.webp',
   secondaryButtonText: 'Explore Flavours',
   secondaryButtonLink: '/category/flavored',
+  categoryCards: DEFAULT_CATEGORY_CARDS,
 };
 
 export async function GET() {
@@ -27,6 +28,9 @@ export async function GET() {
       let settings = await HomepageSettings.findOne().sort({ updatedAt: -1 });
       if (!settings) {
         settings = await HomepageSettings.create(DEFAULT_SETTINGS);
+      } else if (!settings.categoryCards || settings.categoryCards.length === 0) {
+        settings.categoryCards = DEFAULT_CATEGORY_CARDS as any;
+        await settings.save();
       }
       return NextResponse.json({ success: true, settings });
     }

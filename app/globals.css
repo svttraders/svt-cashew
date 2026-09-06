@@ -4,6 +4,16 @@
 
 @layer base {
   :root {
+    --theme-primary: #D4AF37;
+    --theme-secondary: #B48328;
+    --theme-accent: #38BDF8;
+    --theme-bg: #070D18;
+    --theme-card-bg: #0A111E;
+    --theme-text: #F8FAFC;
+    --theme-text-muted: #94A3B8;
+    --theme-glow: rgba(212, 175, 55, 0.4);
+    --theme-border: rgba(212, 175, 55, 0.25);
+
     --background: 220 45% 7%;
     --foreground: 210 40% 98%;
     --primary: 45 65% 52%;
@@ -13,53 +23,67 @@
     --border: 217 33% 20%;
   }
 
+  html {
+    background-color: var(--theme-bg, #070D18);
+    color: var(--theme-text, #F8FAFC);
+  }
+
   body {
-    @apply bg-[#0B1323] text-slate-100 antialiased selection:bg-[#D4AF37] selection:text-[#0B1323];
+    background-color: var(--theme-bg, #070D18);
+    color: var(--theme-text, #F8FAFC);
+    transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-sora), sans-serif;
     letter-spacing: -0.02em;
+    color: var(--theme-text, #F8FAFC);
   }
 }
 
-/* Premium SaaS Surface Classes */
+/* Dynamic Festive Glass Surfaces */
 .glass-panel {
-  background: rgba(16, 27, 48, 0.75);
+  background-color: var(--theme-card-bg, #0A111E);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.1));
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+  color: var(--theme-text, #F8FAFC);
 }
 
 .glass-card {
-  background: rgba(21, 36, 62, 0.6);
+  background-color: var(--theme-card-bg, #0A111E);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(212, 175, 55, 0.15);
+  border: 1px solid var(--theme-border, rgba(212, 175, 55, 0.15));
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
+  color: var(--theme-text, #F8FAFC);
 }
 
 .glass-card:hover {
-  border-color: rgba(212, 175, 55, 0.35);
-  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.35);
+  border-color: var(--theme-primary, #D4AF37);
+  box-shadow: 0 12px 30px -4px var(--theme-glow, rgba(212, 175, 55, 0.35));
 }
 
-/* Refined interactive action button */
+/* Dynamic Theme Primary Action Button */
 .gold-cta-button {
-  background: linear-gradient(135deg, #E5C158 0%, #D4AF37 50%, #B89327 100%);
-  color: #0B1323;
-  font-weight: 700;
+  background: linear-gradient(135deg, var(--theme-primary, #D4AF37) 0%, var(--theme-secondary, #B48328) 100%);
+  color: #070D18;
+  font-weight: 800;
   border-radius: 9999px;
-  box-shadow: 0 4px 14px 0 rgba(212, 175, 55, 0.3);
+  box-shadow: 0 4px 14px 0 var(--theme-glow, rgba(212, 175, 55, 0.3));
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+[data-festival-mode="light"] .gold-cta-button {
+  color: #FFFFFF;
+}
+
 .gold-cta-button:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.1);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px 0 rgba(212, 175, 55, 0.45);
+  box-shadow: 0 6px 20px 0 var(--theme-glow, rgba(212, 175, 55, 0.45));
 }
 
 .gold-cta-button:active {
@@ -73,14 +97,14 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(11, 19, 35, 0.6);
+  background: var(--theme-bg, rgba(11, 19, 35, 0.6));
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.4);
+  background: var(--theme-primary, rgba(212, 175, 55, 0.4));
   border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.8);
+  background: var(--theme-secondary, rgba(212, 175, 55, 0.8));
 }
