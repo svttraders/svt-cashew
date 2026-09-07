@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import VinayakaLogo from '@/components/vinayaka-logo';
 import { useFestivalTheme } from '@/components/theme-provider';
+import NotificationCenter from '@/components/notification-center';
 
 const SUPER_ADMIN_EMAILS = ['pa0174492@gmail.com', 'sahuravindra897@gmail.com'];
 
@@ -172,8 +173,8 @@ export default function Header() {
               })}
             </nav>
 
-            {/* Right: Actions (Wholesale, Cart, Sign In / Account) */}
-            <div className="flex items-center space-x-3">
+            {/* Right: Actions (Wholesale, Cart, Notifications, Sign In / Account) */}
+            <div className="flex items-center space-x-2.5">
               
               {/* WhatsApp Quick Order button */}
               <a
@@ -186,6 +187,16 @@ export default function Header() {
                 <MessageCircle className="w-3.5 h-3.5" strokeWidth={2} />
                 <span>Quick Order</span>
               </a>
+
+              {/* Notification Center */}
+              {mounted && user && (
+                <NotificationCenter
+                  role={userRole === 'super-admin' || userRole === 'admin' ? 'ADMIN' : 'USER'}
+                  userEmail={user.email || undefined}
+                  userId={user.uid}
+                  variant="navbar"
+                />
+              )}
 
               {/* Cart Drawer Trigger */}
               <button

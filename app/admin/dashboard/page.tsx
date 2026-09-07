@@ -15,11 +15,14 @@ import {
   Smartphone, Monitor, Tablet, Zap, Percent, DollarSign, TrendingUp, TrendingDown,
   Award, Share2, Copy, Calendar, Filter, Layers, PieChart, BarChart, MapPin,
   Activity, FileText, Download, Sliders, Palette, Tag, ArrowUpRight,
-  Gift, Star, ArrowUp, ArrowDown, Edit3, Plus, ArrowRight
+  Gift, Star, ArrowUp, ArrowDown, Edit3, Plus, ArrowRight, CreditCard
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { INITIAL_PRODUCTS } from '@/lib/mock-data';
 import { ICategoryFeatureCard, DEFAULT_CATEGORY_CARDS } from '@/lib/category-cards';
+import PaymentSettingsManager from '@/components/admin/payment-settings-manager';
+import VinayakaLogo from '@/components/vinayaka-logo';
+import NotificationCenter from '@/components/notification-center';
 
 interface OrderItem {
   productId: string;
@@ -44,7 +47,7 @@ interface Order {
   };
   items: OrderItem[];
   totalAmount: number;
-  paymentMethod: 'UPI' | 'COD' | 'CARD';
+  paymentMethod: string;
   paymentStatus: 'PENDING' | 'PAID';
   fulfillmentStatus: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED';
   trackingNumber?: string;
@@ -53,7 +56,7 @@ interface Order {
 }
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'homepage' | 'users' | 'coupons' | 'analytics' | 'feedback'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'homepage' | 'users' | 'coupons' | 'analytics' | 'feedback' | 'payments'>('orders');
 
   // Current Admin Identity & Role State
   const [currentAdminRole, setCurrentAdminRole] = useState<'super-admin' | 'admin'>('super-admin');
@@ -247,56 +250,16 @@ export default function AdminDashboardPage() {
   const fetchAllAdminData = async () => {
     setLoading(true);
     try {
-      // Orders
-      const orderRes = await fetch('/api/orders');
+      // Orders (Admin views all real store orders)
+      const orderRes = await fetch('/api/orders?role=ADMIN');
       const orderData = await orderRes.json();
-      if (orderData.success && orderData.orders && orderData.orders.length > 0) {
+      if (orderData.success && Array.isArray(orderData.orders)) {
         setOrders(orderData.orders);
-        setSelectedOrderId(orderData.orders[0].orderId);
+        if (orderData.orders.length > 0) {
+          setSelectedOrderId(orderData.orders[0].orderId);
+        }
       } else {
-        setOrders([
-          {
-            orderId: 'SVT-8801',
-            customerDetails: { name: 'A Kumar', phone: '+91 9515273464', address: '1-53/6 Surya Nagar Colony', colony: 'Uppal', city: 'Hyderabad', pincode: '500039' },
-            items: [
-              { productId: 'p1', title: 'W180 King Jumbo (1kg)', size: '1kg', quantity: 1, price: 900, image: '/images/raw_cashews_hero.png' },
-              { productId: 'p2', title: 'Peri Peri 1kg', size: '1kg', quantity: 2, price: 880, image: '/images/tandoori_cashews_hero.png' }
-            ],
-            totalAmount: 2660,
-            paymentMethod: 'UPI',
-            paymentStatus: 'PAID',
-            fulfillmentStatus: 'DELIVERED',
-            trackingNumber: 'SVT-TRACK-8801',
-            courierPartner: 'Local Uppal Express',
-            createdAt: '2026-08-11'
-          },
-          {
-            orderId: 'SVT-8802',
-            customerDetails: { name: 'Ravindra Sahu', phone: '+91 8919620379', address: 'Plot 45 Main Road', colony: 'Uppal', city: 'Hyderabad', pincode: '500039' },
-            items: [
-              { productId: 'p1', title: 'W180 King Jumbo (1kg)', size: '1kg', quantity: 1, price: 900, image: '/images/raw_cashews_hero.png' }
-            ],
-            totalAmount: 900,
-            paymentMethod: 'COD',
-            paymentStatus: 'PAID',
-            fulfillmentStatus: 'PENDING',
-            createdAt: '2026-08-11'
-          },
-          {
-            orderId: 'SVT-8803',
-            customerDetails: { name: 'Priya Reddy', phone: '+91 9848012345', address: 'Flat 302 Cyber Tower', colony: 'Madhapur', city: 'Hyderabad', pincode: '500081' },
-            items: [
-              { productId: 'p3', title: 'Tandoori Masala Cashew 1kg', size: '1kg', quantity: 2, price: 880, image: '/images/tandoori_cashews_hero.png' }
-            ],
-            totalAmount: 1760,
-            paymentMethod: 'UPI',
-            paymentStatus: 'PAID',
-            fulfillmentStatus: 'SHIPPED',
-            trackingNumber: 'SVT-TRACK-8803',
-            courierPartner: 'Hyderabad Fast-Track Logistics',
-            createdAt: '2026-08-28'
-          }
-        ]);
+        setOrders([]);
       }
 
       // Homepage Settings
@@ -339,17 +302,40 @@ export default function AdminDashboardPage() {
 
   const handleUpdateFulfillment = async (orderId: string, fulfillmentStatus: string) => {
     setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, fulfillmentStatus: fulfillmentStatus as any } : o));
-    await fetch(`/api/orders/${orderId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fulfillmentStatus })
-    });
+    setStatusMsg(`Updating Order #${orderId} status to ${fulfillmentStatus}...`);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fulfillmentStatus, updatedBy: currentAdminEmail || 'Admin' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatusMsg(`Order #${orderId} set to ${fulfillmentStatus}. Customer notified via email & dashboard timeline!`);
+        setTimeout(() => setStatusMsg(''), 4500);
+      }
+    } catch (err) {
+      console.error('Fulfillment update error:', err);
+    }
   };
 
   const handleUpdateTracking = async (orderId: string, trackingNumber: string, courierPartner: string) => {
     setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, trackingNumber, courierPartner } : o));
-    setStatusMsg(`Tracking updated for #${orderId}`);
-    setTimeout(() => setStatusMsg(''), 3000);
+    setStatusMsg(`Saving tracking details for Order #${orderId}...`);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackingNumber, courierPartner, updatedBy: currentAdminEmail || 'Admin' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatusMsg(`Consignment tracking saved for #${orderId} (${courierPartner || 'Courier'} - ${trackingNumber}). Customer notified!`);
+        setTimeout(() => setStatusMsg(''), 4500);
+      }
+    } catch (err) {
+      console.error('Tracking update error:', err);
+    }
   };
 
   const handleSaveHomepageSettings = async (e?: React.FormEvent) => {
@@ -809,13 +795,9 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between pb-4 border-b border-[#D4AF37]/20">
               <Link href="/" className="flex items-center space-x-3 overflow-hidden">
                 {!sidebarCollapsed ? (
-                  <div className="relative h-10 w-44">
-                    <Image src="/images/Header-logo.png" alt="SVT Logo" fill className="object-contain" priority />
-                  </div>
+                  <VinayakaLogo iconSize={36} layout="horizontal" />
                 ) : (
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#D4AF37] to-[#B48328] text-[#070D18] font-black text-xl flex items-center justify-center shadow-lg mx-auto">
-                    SVT
-                  </div>
+                  <VinayakaLogo iconSize={32} showText={false} />
                 )}
               </Link>
 
@@ -998,6 +980,18 @@ export default function AdminDashboardPage() {
                     <BarChart3 className="w-4 h-4 shrink-0" />
                     {!sidebarCollapsed && <span className="uppercase tracking-wider">Revenue & Analytics</span>}
                   </button>
+
+                  <button
+                    onClick={() => setActiveTab('payments')}
+                    title="Payment Gateways & Surcharge Control"
+                    className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'space-x-3 px-3.5'} py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === 'payments'
+                        ? 'bg-gradient-to-r from-[#D4AF37] to-[#C99E2E] text-[#070D18] shadow-lg font-black'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-[#D4AF37]'
+                      }`}
+                  >
+                    <CreditCard className="w-4 h-4 shrink-0 text-[#D4AF37]" />
+                    {!sidebarCollapsed && <span className="uppercase tracking-wider">Payment & Surcharges</span>}
+                  </button>
                 </div>
               </div>
 
@@ -1050,6 +1044,7 @@ export default function AdminDashboardPage() {
                     {activeTab === 'coupons' && 'Coupon & Promo Campaign Manager'}
                     {activeTab === 'analytics' && 'Executive Sales & Revenue Analytics'}
                     {activeTab === 'feedback' && 'Customer Inquiries & Support Desk'}
+                    {activeTab === 'payments' && 'Payment Gateways & Dynamic Surcharge Suite'}
                   </span>
                 </h1>
                 {currentAdminRole === 'super-admin' ? (
@@ -1076,6 +1071,12 @@ export default function AdminDashboardPage() {
 
             {/* Quick Actions Bar */}
             <div className="flex items-center space-x-3">
+              <NotificationCenter
+                role="ADMIN"
+                userEmail={currentAdminEmail}
+                variant="navbar"
+              />
+
               <button
                 type="button"
                 onClick={fetchAllAdminData}
@@ -3217,6 +3218,13 @@ export default function AdminDashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* TAB 8: PAYMENT GATEWAYS & DYNAMIC SURCHARGES */}
+          {activeTab === 'payments' && (
+            <div className="space-y-6">
+              <PaymentSettingsManager />
             </div>
           )}
 

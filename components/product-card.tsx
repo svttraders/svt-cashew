@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
+import SafeImage from '@/components/ui/safe-image';
 import { Product } from '@/lib/mock-data';
 import { useCartStore } from '@/lib/cart-store';
 import { ShoppingBag, Check, Flame, Sparkles } from 'lucide-react';
@@ -10,11 +10,12 @@ import { Badge } from '@/components/ui/badge';
 
 interface ProductCardProps {
   product: Product;
+  priority?: boolean;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, priority = false }: ProductCardProps) {
   const availableWeights =
-    product.weightOptions && product.weightOptions.length > 0
+    Array.isArray(product?.weightOptions) && product.weightOptions.length > 0
       ? product.weightOptions
       : ['250g', '500g', '1kg'];
 
@@ -23,7 +24,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
 
   const getCalculatedPrice = (size: string) => {
-    const basePrice = Number(product.price) || 880;
+    const basePrice = Number(product?.price) || 880;
     if (size === '250g') return Math.round(basePrice * 0.55);
     if (size === '1kg') return Math.round(basePrice * 1.9);
     if (size === '2kg') return Math.round(basePrice * 3.75);
@@ -32,30 +33,31 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   const currentPrice = getCalculatedPrice(selectedSize);
-  const originalPrice = product.originalPrice || Math.round(product.price * 1.15);
+  const originalPrice = product?.originalPrice || Math.round((Number(product?.price) || 880) * 1.15);
   const calculatedOriginalPrice = Math.round(
     originalPrice * (selectedSize === '1kg' ? 1.9 : selectedSize === '250g' ? 0.55 : 1)
   );
 
   const discountPercent =
-    product.discountPercent ||
+    product?.discountPercent ||
     (calculatedOriginalPrice > currentPrice
       ? Math.round(((calculatedOriginalPrice - currentPrice) / calculatedOriginalPrice) * 100)
       : 0);
 
   const primaryImage =
-    (product.images && product.images.length > 0 && product.images[0]) ||
+    (product?.images && product.images.length > 0 && product.images[0]) ||
     '/images/raw_cashews_hero.webp';
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!product) return;
 
     addItem({
-      productId: product._id,
-      title: product.title,
-      slug: product.slug || product._id,
-      category: product.category,
+      productId: product._id || product.id || `prod_${Date.now()}`,
+      title: product.title || 'Gourmet Cashews',
+      slug: product.slug || product._id || 'cashews',
+      category: product.category || 'RAW',
       size: selectedSize,
       quantity: 1,
       price: currentPrice,
@@ -72,12 +74,13 @@ export default function ProductCard({ product }: ProductCardProps) {
       {/* Product Image Container */}
       <div className="relative aspect-square rounded-xl bg-navy-950/60 overflow-hidden mb-4 border border-white/5">
         <Link href={`/products/${product.slug || product._id}`}>
-          <Image
+          <SafeImage
             src={primaryImage}
             alt={`${product.title} - Sidhi Vinayaka Traders Uppal`}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+            priority={priority}
           />
         </Link>
 

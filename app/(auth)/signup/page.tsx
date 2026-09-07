@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import VinayakaLogo from '@/components/vinayaka-logo';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
@@ -222,16 +223,8 @@ export default function SignupPage() {
 
         {/* Header Branding */}
         <div className="text-center space-y-2 pt-2">
-          <Link href="/" className="inline-block">
-            <div className="relative h-12 w-48 mx-auto overflow-hidden">
-              <Image
-                src="/images/footer-logo.webp"
-                alt="Sidhi Vinayaka Traders"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
+          <Link href="/" className="inline-block hover:scale-102 transition-transform">
+            <VinayakaLogo iconSize={48} layout="vertical" />
           </Link>
           <h1 className="text-2xl font-bold font-heading text-white">
             {step === 'DETAILS' ? 'Create an Account' : 'Verify Your Email'}

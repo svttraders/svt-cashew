@@ -42,6 +42,16 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     type: 'website',
     siteName: 'Sidhi Vinayaka Traders'
+  },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/logo.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
   }
 };
 

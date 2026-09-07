@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import SafeImage from '@/components/ui/safe-image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import ProductCard from '@/components/product-card';
@@ -156,72 +157,72 @@ export default function ProductDetailPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           
-          {/* Left: Interactive Multi-Image Gallery */}
-          <div className="lg:col-span-6 space-y-4">
-            <div className="relative aspect-square rounded-3xl overflow-hidden glass-panel p-2 border border-white/10 shadow-elevated group bg-navy-900">
-              <Image
-                src={product.images[activeImageIndex] || product.images[0] || "/images/raw_cashews_hero.webp"}
-                alt={`${product.title} view ${activeImageIndex + 1}`}
-                fill
-                className="object-cover rounded-2xl group-hover:scale-105 transition-transform duration-500 ease-out"
-                priority
-              />
+            {/* Left: Interactive Multi-Image Gallery */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="relative aspect-square rounded-3xl overflow-hidden glass-panel p-2 border border-white/10 shadow-elevated group bg-navy-900">
+                <SafeImage
+                  src={product.images[activeImageIndex] || product.images[0] || "/images/raw_cashews_hero.webp"}
+                  alt={`${product.title} view ${activeImageIndex + 1}`}
+                  fill
+                  className="object-cover rounded-2xl group-hover:scale-105 transition-transform duration-500 ease-out"
+                  priority
+                />
 
-              {/* View Badge */}
-              <div className="absolute top-4 left-4 z-10 flex gap-2">
-                <span className="px-3 py-1 rounded-full bg-navy-950/80 backdrop-blur-md border border-white/10 text-[11px] font-semibold text-[#D4AF37] shadow-md">
-                  {activeImageIndex === 0 ? 'Primary Image' : `Gallery View 0${activeImageIndex + 1}`}
-                </span>
-                {product.badgeText && (
-                  <span className="px-3 py-1 rounded-full bg-[#D4AF37] text-navy-950 text-[11px] font-black uppercase shadow-md">
-                    {product.badgeText}
+                {/* View Badge */}
+                <div className="absolute top-4 left-4 z-10 flex gap-2">
+                  <span className="px-3 py-1 rounded-full bg-navy-950/80 backdrop-blur-md border border-white/10 text-[11px] font-semibold text-[#D4AF37] shadow-md">
+                    {activeImageIndex === 0 ? 'Primary Image' : `Gallery View 0${activeImageIndex + 1}`}
                   </span>
+                  {product.badgeText && (
+                    <span className="px-3 py-1 rounded-full bg-[#D4AF37] text-navy-950 text-[11px] font-black uppercase shadow-md">
+                      {product.badgeText}
+                    </span>
+                  )}
+                </div>
+
+                {/* Gallery Dots */}
+                {product.images.length > 1 && (
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-10">
+                    {product.images.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setActiveImageIndex(idx)}
+                        className={`h-2 rounded-full transition-all ${
+                          activeImageIndex === idx ? 'bg-[#D4AF37] w-6' : 'bg-white/40 w-2 hover:bg-white/70'
+                        }`}
+                        aria-label={`Show image ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {/* Gallery Dots */}
+              {/* Gallery Thumbnails */}
               {product.images.length > 1 && (
-                <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-10">
-                  {product.images.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setActiveImageIndex(idx)}
-                      className={`h-2 rounded-full transition-all ${
-                        activeImageIndex === idx ? 'bg-[#D4AF37] w-6' : 'bg-white/40 w-2 hover:bg-white/70'
-                      }`}
-                      aria-label={`Show image ${idx + 1}`}
-                    />
-                  ))}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 font-medium">
+                    <span>Product Views ({product.images.length} photos)</span>
+                    <span className="text-[#D4AF37]">Click angle to switch</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-3">
+                    {product.images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setActiveImageIndex(idx)}
+                        className={`relative aspect-square rounded-xl overflow-hidden border bg-navy-900 transition-all ${
+                          activeImageIndex === idx
+                            ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50 shadow-md scale-102'
+                            : 'border-white/10 opacity-70 hover:opacity-100 hover:border-white/25'
+                        }`}
+                        aria-label={`Thumbnail ${idx + 1}`}
+                      >
+                        <SafeImage src={img} alt={`Angle ${idx + 1}`} fill className="object-cover" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Gallery Thumbnails */}
-            {product.images.length > 1 && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 font-medium">
-                  <span>Product Views ({product.images.length} photos)</span>
-                  <span className="text-[#D4AF37]">Click angle to switch</span>
-                </div>
-                <div className="grid grid-cols-4 gap-3">
-                  {product.images.map((img, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setActiveImageIndex(idx)}
-                      className={`relative aspect-square rounded-xl overflow-hidden border bg-navy-900 transition-all ${
-                        activeImageIndex === idx
-                          ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50 shadow-md scale-102'
-                          : 'border-white/10 opacity-70 hover:opacity-100 hover:border-white/25'
-                      }`}
-                      aria-label={`Thumbnail ${idx + 1}`}
-                    >
-                      <Image src={img} alt={`Angle ${idx + 1}`} fill className="object-cover" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Right: Product Specs & Breakdown */}
           <div className="lg:col-span-6 space-y-6">

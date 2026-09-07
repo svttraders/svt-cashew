@@ -7,74 +7,85 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { useCartStore } from '@/lib/cart-store';
+import NotificationCenter from '@/components/notification-center';
 import {
   Package, LogOut, User as UserIcon, Heart, ShoppingBag, ArrowRight,
   MapPin, Star, Ticket, Printer, Truck, CheckCircle2, Clock, Circle,
   ChevronRight, Bell, Shield, Edit2, Phone, Mail, MessageSquare,
   ChevronDown, AlertCircle, RefreshCw, Crown, ShieldCheck, Sparkles,
-  Copy, Check, ExternalLink, Award, Gift, ArrowUpRight, CheckCircle
+  Copy, Check, ExternalLink, Award, Gift, ArrowUpRight, CheckCircle,
+  FileText, Navigation, Calendar, Send
 } from 'lucide-react';
 
 const SUPER_ADMIN_EMAILS = ['pa0174492@gmail.com', 'sahuravindra897@gmail.com'];
 
-type TabId = 'overview' | 'orders' | 'track' | 'coupons' | 'invoices' | 'profile' | 'wishlist';
+type TabId = 'overview' | 'orders' | 'track' | 'notifications' | 'coupons' | 'invoices' | 'profile' | 'wishlist';
 
-const STATUS_CONFIG: Record<string, { color: string; label: string; badgeBg: string }> = {
-  PENDING:    { color: 'text-amber-400 border-amber-500/40',   badgeBg: 'bg-amber-950/80', label: 'Pending Confirmation' },
-  PROCESSING: { color: 'text-blue-400 border-blue-500/40',     badgeBg: 'bg-blue-950/80',  label: 'Roastery Processing' },
-  SHIPPED:    { color: 'text-indigo-400 border-indigo-500/40', badgeBg: 'bg-indigo-950/80', label: 'Out for Delivery' },
-  DELIVERED:  { color: 'text-emerald-400 border-emerald-500/40', badgeBg: 'bg-emerald-950/80', label: 'Delivered' },
+interface TimelineEvent {
+  status: string;
+  title: string;
+  description: string;
+  timestamp: string | Date;
+  courierPartner?: string;
+  trackingNumber?: string;
+  updatedBy?: string;
+}
+
+interface OrderItem {
+  productId: string;
+  title: string;
+  size: string;
+  quantity: number;
+  price: number;
+  image?: string;
+}
+
+interface Order {
+  _id?: string;
+  orderId: string;
+  userId?: string;
+  createdAt?: string;
+  customerDetails: {
+    name: string;
+    phone: string;
+    email?: string;
+    address: string;
+    colony: string;
+    city: string;
+    pincode: string;
+  };
+  items: OrderItem[];
+  subtotal?: number;
+  discountAmount?: number;
+  additionalCharges?: { id: string; name: string; amount: number }[];
+  totalAmount: number;
+  paymentMethod: string;
+  paymentStatus: 'PENDING' | 'PAID' | 'FAILED';
+  fulfillmentStatus: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  timeline?: TimelineEvent[];
+  trackingNumber?: string;
+  courierPartner?: string;
+  estimatedDelivery?: string;
+  notes?: string;
+}
+
+const STATUS_CONFIG: Record<string, { color: string; label: string; badgeBg: string; border: string }> = {
+  PENDING:    { color: 'text-amber-400', border: 'border-amber-500/40', badgeBg: 'bg-amber-950/80', label: 'Order Placed / Pending' },
+  PROCESSING: { color: 'text-blue-400', border: 'border-blue-500/40',   badgeBg: 'bg-blue-950/80',  label: 'Roastery Processing' },
+  SHIPPED:    { color: 'text-indigo-400', border: 'border-indigo-500/40', badgeBg: 'bg-indigo-950/80', label: 'Dispatched / In Transit' },
+  DELIVERED:  { color: 'text-emerald-400', border: 'border-emerald-500/40', badgeBg: 'bg-emerald-950/80', label: 'Delivered Safely' },
+  CANCELLED:  { color: 'text-rose-400', border: 'border-rose-500/40', badgeBg: 'bg-rose-950/80', label: 'Order Cancelled' },
 };
 
-const MOCK_ORDERS = [
-  {
-    _id: 'ord1',
-    orderId: 'SVT-8801',
-    date: '2026-08-11',
-    items: [
-      { productId: 'p1', title: 'W180 King Jumbo Raw Cashew', size: '1kg', quantity: 1, price: 900, image: '/images/raw_cashews_hero.webp' },
-      { productId: 'p2', title: 'Peri Peri Gourmet Cashew', size: '500g', quantity: 2, price: 440, image: '/images/tandoori_cashews_hero.webp' },
-    ],
-    totalAmount: 1780,
-    paymentMethod: 'UPI',
-    paymentStatus: 'PAID',
-    fulfillmentStatus: 'DELIVERED',
-    trackingNumber: 'SVT-TRK-88012026',
-    courierPartner: 'Uppal Express Roastery Dispatch',
-    estimatedDelivery: '2026-08-13',
-  },
-  {
-    _id: 'ord2',
-    orderId: 'SVT-8802',
-    date: '2026-08-20',
-    items: [
-      { productId: 'p3', title: 'Tandoori Masala Artisanal Cashew', size: '1kg', quantity: 1, price: 880, image: '/images/tandoori_cashews_hero.webp' },
-    ],
-    totalAmount: 880,
-    paymentMethod: 'COD',
-    paymentStatus: 'PENDING',
-    fulfillmentStatus: 'PROCESSING',
-    trackingNumber: 'SVT-TRK-88029901',
-    courierPartner: 'Hyderabad Local Direct',
-    estimatedDelivery: '2026-08-25',
-  },
-];
-
-const MOCK_COUPONS = [
-  { code: 'WELCOME10', discountPercent: 10, minOrderAmount: 500, expiresAt: '2026-12-31', isActive: true, description: 'Welcome VIP Offer — 10% discount on entire cart.' },
-  { code: 'SVTDIWALI', discountPercent: 15, minOrderAmount: 1000, expiresAt: '2026-11-15', isActive: true, description: 'Festive Season Special — 15% discount on orders above ₹1,000.' },
-  { code: 'JUMBO20', discountPercent: 20, minOrderAmount: 2500, expiresAt: '2026-10-30', isActive: true, description: 'Wholesale & Bulk Bonus — 20% discount on orders above ₹2,500.' },
-];
-
-const ORDER_TIMELINE = [
-  { key: 'PENDING',    label: 'Order Placed',        icon: ShoppingBag,   desc: 'Order received and logged in system.' },
-  { key: 'PROCESSING', label: 'Roastery Processing',  icon: RefreshCw,     desc: 'Freshly sorted & packed at Uppal Facility.' },
-  { key: 'SHIPPED',    label: 'Dispatched / In Transit', icon: Truck,     desc: 'Handed over to courier with live tracking.' },
+const ORDER_MILESTONES = [
+  { key: 'PENDING',    label: 'Order Placed',        icon: ShoppingBag,   desc: 'Order logged & verified at Uppal Roastery.' },
+  { key: 'PROCESSING', label: 'Roasting & Packed',   icon: RefreshCw,     desc: 'Freshly sorted & vacuum packed at Uppal Facility.' },
+  { key: 'SHIPPED',    label: 'Dispatched in Transit', icon: Truck,       desc: 'Handed over to courier with live waybill tracking.' },
   { key: 'DELIVERED',  label: 'Delivered',           icon: CheckCircle2,  desc: 'Package delivered safely to destination.' },
 ];
 
-function getTimelineStep(status: string) {
-  const idx = ORDER_TIMELINE.findIndex(t => t.key === status);
+function getTimelineIndex(status: string) {
+  const idx = ORDER_MILESTONES.findIndex(t => t.key === status);
   return idx === -1 ? 0 : idx;
 }
 
@@ -82,26 +93,24 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab') as TabId | null;
+  const orderIdParam = searchParams.get('orderId');
 
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<'super-admin' | 'admin' | 'user'>('user');
   const [activeTab, setActiveTab] = useState<TabId>(tabParam || 'overview');
-  const [orders, setOrders] = useState(MOCK_ORDERS);
-  const [coupons, setCoupons] = useState(MOCK_COUPONS);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTrackOrder, setSelectedTrackOrder] = useState(MOCK_ORDERS[0]);
-  const [invoiceOrder, setInvoiceOrder] = useState<typeof MOCK_ORDERS[0] | null>(null);
-  const [reviewModal, setReviewModal] = useState<typeof MOCK_ORDERS[0] | null>(null);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewText, setReviewText] = useState('');
+  const [selectedTrackOrder, setSelectedTrackOrder] = useState<Order | null>(null);
+  const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState('');
   const [orderFilter, setOrderFilter] = useState<'ALL' | 'PROCESSING' | 'DELIVERED'>('ALL');
 
   // Profile Address State
   const [profileForm, setProfileForm] = useState({
     name: '',
-    phone: '+91 9515273464',
-    address: '1-53/6 Surya Nagar Colony',
+    phone: '',
+    address: '',
     colony: 'Uppal',
     city: 'Hyderabad',
     pincode: '500039'
@@ -109,6 +118,37 @@ function DashboardContent() {
   const [profileSavedMsg, setProfileSavedMsg] = useState('');
 
   const { addItem, toggleCart } = useCartStore();
+
+  const fetchOrders = async (currentUserEmail?: string, currentUserId?: string) => {
+    try {
+      const params = new URLSearchParams();
+      if (currentUserEmail) params.set('email', currentUserEmail);
+      if (currentUserId) params.set('userId', currentUserId);
+
+      const res = await fetch(`/api/orders?${params.toString()}`);
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+        if (data.orders.length > 0) {
+          if (orderIdParam) {
+            const found = data.orders.find((o: Order) => o.orderId === orderIdParam);
+            setSelectedTrackOrder(found || data.orders[0]);
+          } else {
+            setSelectedTrackOrder(data.orders[0]);
+          }
+        } else {
+          setSelectedTrackOrder(null);
+        }
+      } else {
+        setOrders([]);
+        setSelectedTrackOrder(null);
+      }
+    } catch {
+      setOrders([]);
+      setSelectedTrackOrder(null);
+    }
+  };
 
   useEffect(() => {
     if (!auth) { setLoading(false); return; }
@@ -137,27 +177,19 @@ function DashboardContent() {
         } catch { /* ignore */ }
       }
 
-      // Load orders
-      try {
-        const res = await fetch('/api/orders');
-        const data = await res.json();
-        if (data.success && data.orders?.length > 0) {
-          setOrders(data.orders);
-          setSelectedTrackOrder(data.orders[0]);
-        }
-      } catch { /* use mock */ }
+      await fetchOrders(email, currentUser.uid);
 
       // Load coupons
       try {
         const res = await fetch('/api/admin/coupons');
         const data = await res.json();
         if (data.success && data.coupons?.length > 0) setCoupons(data.coupons);
-      } catch { /* use mock */ }
+      } catch { /* ignore */ }
 
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [router]);
+  }, [router, orderIdParam]);
 
   useEffect(() => {
     if (tabParam) setActiveTab(tabParam);
@@ -168,9 +200,9 @@ function DashboardContent() {
     router.push('/');
   };
 
-  const copyCoupon = (code: string) => {
-    navigator.clipboard.writeText(code).catch(() => {});
-    setCopied(code);
+  const copyText = (text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopied(text);
     setTimeout(() => setCopied(''), 2500);
   };
 
@@ -180,7 +212,7 @@ function DashboardContent() {
     setTimeout(() => setProfileSavedMsg(''), 4000);
   };
 
-  const handleReorder = (order: typeof MOCK_ORDERS[0]) => {
+  const handleReorder = (order: Order) => {
     order.items.forEach(item => {
       addItem({
         productId: item.productId || 'p1',
@@ -213,7 +245,7 @@ function DashboardContent() {
   const initials = displayName.slice(0, 2).toUpperCase();
   const totalSpent = orders.reduce((s, o) => s + o.totalAmount, 0);
   const deliveredCount = orders.filter(o => o.fulfillmentStatus === 'DELIVERED').length;
-  const pendingCount = orders.filter(o => o.fulfillmentStatus !== 'DELIVERED').length;
+  const pendingCount = orders.filter(o => o.fulfillmentStatus !== 'DELIVERED' && o.fulfillmentStatus !== 'CANCELLED').length;
 
   // VIP Loyalty Level
   const vipTier = totalSpent >= 5000 ? 'Gold VIP Elite' : totalSpent >= 2000 ? 'Silver VIP Member' : 'Bronze Shopper';
@@ -222,18 +254,19 @@ function DashboardContent() {
 
   const filteredOrders = orders.filter(o => {
     if (orderFilter === 'DELIVERED') return o.fulfillmentStatus === 'DELIVERED';
-    if (orderFilter === 'PROCESSING') return o.fulfillmentStatus !== 'DELIVERED';
+    if (orderFilter === 'PROCESSING') return o.fulfillmentStatus !== 'DELIVERED' && o.fulfillmentStatus !== 'CANCELLED';
     return true;
   });
 
   const TABS: { id: TabId; label: string; icon: any; badge?: number }[] = [
-    { id: 'overview',  label: 'Overview',        icon: UserIcon },
-    { id: 'orders',    label: 'My Orders',       icon: Package,      badge: orders.length },
-    { id: 'track',     label: 'Live Tracking',   icon: Truck,        badge: pendingCount > 0 ? pendingCount : undefined },
-    { id: 'coupons',   label: 'VIP Coupons',     icon: Ticket,       badge: coupons.length },
-    { id: 'invoices',  label: 'Tax Invoices',    icon: Printer },
-    { id: 'profile',   label: 'Profile & Address', icon: Edit2 },
-    { id: 'wishlist',  label: 'My Wishlist',     icon: Heart },
+    { id: 'overview',      label: 'Overview',            icon: UserIcon },
+    { id: 'orders',        label: 'My Orders',           icon: Package,      badge: orders.length > 0 ? orders.length : undefined },
+    { id: 'track',         label: 'Live Tracking & Timeline', icon: Truck,   badge: pendingCount > 0 ? pendingCount : undefined },
+    { id: 'notifications', label: 'Notifications',       icon: Bell },
+    { id: 'coupons',       label: 'VIP Coupons',         icon: Ticket,       badge: coupons.length > 0 ? coupons.length : undefined },
+    { id: 'invoices',      label: 'Tax Invoices',        icon: Printer },
+    { id: 'profile',       label: 'Profile & Address',   icon: Edit2 },
+    { id: 'wishlist',      label: 'My Wishlist',         icon: Heart },
   ];
 
   return (
@@ -302,8 +335,15 @@ function DashboardContent() {
               </div>
             </div>
 
-            {/* Quick Actions & Logout */}
+            {/* Quick Actions & In-App Notification Center */}
             <div className="flex items-center gap-3 self-stretch md:self-auto justify-end">
+              <NotificationCenter
+                role="USER"
+                userEmail={user.email || undefined}
+                userId={user.uid}
+                variant="dashboard"
+              />
+
               <Link
                 href="/#shop"
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B48328] text-[#070D18] font-black text-xs uppercase tracking-wider flex items-center space-x-2 shadow-lg transition-transform hover:scale-105"
@@ -311,7 +351,9 @@ function DashboardContent() {
                 <ShoppingBag className="w-4 h-4" />
                 <span>Shop Fresh Cashews</span>
               </Link>
+
               <button
+                type="button"
                 onClick={handleSignOut}
                 className="p-2.5 bg-white/5 hover:bg-rose-950/40 border border-white/10 hover:border-rose-500/40 text-slate-400 hover:text-rose-400 rounded-xl text-xs font-bold transition-colors"
                 title="Sign Out"
@@ -338,7 +380,9 @@ function DashboardContent() {
                 />
               </div>
               <p className="text-[10px] text-slate-400">
-                Spend ₹{Math.max(0, nextTierTarget - totalSpent)} more to unlock Gold VIP exclusive discounts and priority harvest alerts.
+                {orders.length === 0
+                  ? 'Place your first order to begin earning VIP loyalty points and unlock exclusive harvest discounts.'
+                  : `Spend ₹${Math.max(0, nextTierTarget - totalSpent)} more to unlock Gold VIP exclusive discounts and priority harvest alerts.`}
               </p>
             </div>
 
@@ -368,6 +412,7 @@ function DashboardContent() {
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
                     isActive
@@ -398,7 +443,7 @@ function DashboardContent() {
               <span className="font-black uppercase tracking-wider text-[11px]">Uppal Support Desk</span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Need custom packing or bulk corporate gifting advice?
+              Need custom roasting, weight alterations, or bulk corporate packs?
             </p>
             <a
               href="https://wa.me/919515273464"
@@ -419,8 +464,8 @@ function DashboardContent() {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               
-              {/* Active Order Alert */}
-              {pendingCount > 0 && orders.find(o => o.fulfillmentStatus !== 'DELIVERED') && (
+              {/* Active Order Alert (if any active order exists) */}
+              {pendingCount > 0 && orders.find(o => o.fulfillmentStatus !== 'DELIVERED' && o.fulfillmentStatus !== 'CANCELLED') && (
                 <div className="bg-gradient-to-r from-blue-950/90 to-[#0A111E] border border-blue-500/40 rounded-3xl p-6 shadow-xl space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center space-x-3">
@@ -429,33 +474,34 @@ function DashboardContent() {
                       </div>
                       <div>
                         <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Active Consignment</span>
-                        <h3 className="text-base font-black text-white">Order #{orders.find(o => o.fulfillmentStatus !== 'DELIVERED')?.orderId}</h3>
+                        <h3 className="text-base font-black text-white">Order #{orders.find(o => o.fulfillmentStatus !== 'DELIVERED' && o.fulfillmentStatus !== 'CANCELLED')?.orderId}</h3>
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
-                        const activeOrd = orders.find(o => o.fulfillmentStatus !== 'DELIVERED');
+                        const activeOrd = orders.find(o => o.fulfillmentStatus !== 'DELIVERED' && o.fulfillmentStatus !== 'CANCELLED');
                         if (activeOrd) setSelectedTrackOrder(activeOrd);
                         setActiveTab('track');
                       }}
-                      className="px-4 py-2 rounded-xl bg-blue-500 text-white font-black text-xs uppercase tracking-wider flex items-center space-x-1 hover:bg-blue-600 transition-colors"
+                      className="px-4 py-2 rounded-xl bg-blue-500 text-white font-black text-xs uppercase tracking-wider flex items-center space-x-1 hover:bg-blue-600 transition-colors shadow-lg"
                     >
-                      <span>Live Tracker</span>
+                      <span>Live Timeline & Tracking</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Latest Order Showcase */}
-              {orders.length > 0 && (
+              {/* Latest Order Showcase (Only if user has actual orders) */}
+              {orders.length > 0 ? (
                 <div className="bg-[#0A111E] border border-[#D4AF37]/20 rounded-3xl p-6 space-y-4 shadow-xl">
                   <div className="flex justify-between items-center border-b border-white/10 pb-3">
                     <h3 className="text-sm font-black text-[#D4AF37] uppercase tracking-wider flex items-center gap-2">
                       <Package className="w-4 h-4 text-[#D4AF37]" />
                       <span>Latest Order Details</span>
                     </h3>
-                    <button onClick={() => setActiveTab('orders')} className="text-xs text-slate-400 hover:text-[#D4AF37] flex items-center space-x-1 font-bold">
+                    <button type="button" onClick={() => setActiveTab('orders')} className="text-xs text-slate-400 hover:text-[#D4AF37] flex items-center space-x-1 font-bold">
                       <span>View All History</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
@@ -464,11 +510,13 @@ function DashboardContent() {
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <p className="font-mono font-black text-white text-base">#{orders[0].orderId}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Placed on {orders[0].date} • {orders[0].items.length} product(s)</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Placed on {orders[0].createdAt ? new Date(orders[0].createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent'} • {orders[0].items.length} item(s)
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="font-black text-[#D4AF37] text-lg">₹{orders[0].totalAmount}/-</p>
-                      <span className={`text-[10px] px-3 py-0.5 rounded-full font-black border ${STATUS_CONFIG[orders[0].fulfillmentStatus]?.color} ${STATUS_CONFIG[orders[0].fulfillmentStatus]?.badgeBg}`}>
+                      <span className={`text-[10px] px-3 py-0.5 rounded-full font-black border ${STATUS_CONFIG[orders[0].fulfillmentStatus]?.color} ${STATUS_CONFIG[orders[0].fulfillmentStatus]?.border} ${STATUS_CONFIG[orders[0].fulfillmentStatus]?.badgeBg}`}>
                         {STATUS_CONFIG[orders[0].fulfillmentStatus]?.label}
                       </span>
                     </div>
@@ -490,21 +538,63 @@ function DashboardContent() {
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-3 pt-2">
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
                     <button
-                      onClick={() => handleReorder(orders[0])}
+                      type="button"
+                      onClick={() => { setSelectedTrackOrder(orders[0]); setActiveTab('track'); }}
                       className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B48328] text-[#070D18] font-black text-xs uppercase tracking-wider flex items-center space-x-1.5 shadow-md"
                     >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>Quick Re-Order</span>
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>Track Order Timeline</span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => setInvoiceOrder(orders[0])}
                       className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-bold transition-colors flex items-center space-x-1.5"
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      <span>Print Tax Invoice</span>
+                      <span>Tax Invoice</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReorder(orders[0])}
+                      className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-bold transition-colors flex items-center space-x-1.5"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Buy Again</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Pure Empty State for New Users (Zero Fake Data) */
+                <div className="bg-[#0A111E] border border-[#D4AF37]/30 rounded-3xl p-8 sm:p-12 text-center space-y-5 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-[#D4AF37]/5 rounded-full blur-2xl pointer-events-none" />
+                  
+                  <div className="w-16 h-16 rounded-3xl bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center mx-auto border border-[#D4AF37]/30 shadow-lg">
+                    <ShoppingBag className="w-8 h-8" />
+                  </div>
+
+                  <div className="space-y-2 max-w-lg mx-auto">
+                    <h3 className="text-xl font-black font-display text-white">Welcome to Your VIP Member Suite!</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      You do not have any orders placed yet. Explore our King Jumbo W180 and fresh roastery spiced cashews to place your first order. Live tracking, package milestone alerts, and GST tax invoices will appear here automatically.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                    <Link
+                      href="/#shop"
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B48328] text-[#070D18] font-black text-xs uppercase tracking-wider shadow-lg hover:scale-105 transition-transform flex items-center space-x-2"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Explore Cashew Catalog</span>
+                    </Link>
+                    <Link
+                      href="/category/raw"
+                      className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-bold transition-colors"
+                    >
+                      Browse Raw W180 Cashews
+                    </Link>
                   </div>
                 </div>
               )}
@@ -512,6 +602,7 @@ function DashboardContent() {
               {/* Quick Navigation Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button
+                  type="button"
                   onClick={() => setActiveTab('coupons')}
                   className="bg-[#0A111E] p-5 rounded-3xl border border-[#D4AF37]/20 text-left hover:border-[#D4AF37] transition-all space-y-3 group shadow-xl"
                 >
@@ -525,6 +616,7 @@ function DashboardContent() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setActiveTab('invoices')}
                   className="bg-[#0A111E] p-5 rounded-3xl border border-[#D4AF37]/20 text-left hover:border-[#D4AF37] transition-all space-y-3 group shadow-xl"
                 >
@@ -533,11 +625,12 @@ function DashboardContent() {
                   </div>
                   <div>
                     <h4 className="text-sm font-black text-white">Tax Invoices</h4>
-                    <p className="text-xs text-slate-400 mt-0.5">Download GST Bills</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{orders.length} Verified Invoices</p>
                   </div>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setActiveTab('profile')}
                   className="bg-[#0A111E] p-5 rounded-3xl border border-[#D4AF37]/20 text-left hover:border-[#D4AF37] transition-all space-y-3 group shadow-xl"
                 >
@@ -546,7 +639,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <h4 className="text-sm font-black text-white">Shipping Address</h4>
-                    <p className="text-xs text-slate-400 mt-0.5">Uppal, Hyderabad Zone</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Manage Delivery Info</p>
                   </div>
                 </button>
               </div>
@@ -564,28 +657,34 @@ function DashboardContent() {
                 </div>
 
                 {/* Filter Pills */}
-                <div className="flex items-center space-x-1.5 bg-[#0A111E] p-1 rounded-2xl border border-white/10">
-                  {(['ALL', 'PROCESSING', 'DELIVERED'] as const).map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => setOrderFilter(filter)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        orderFilter === filter
-                          ? 'bg-[#D4AF37] text-[#070D18]'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {filter === 'ALL' ? 'All Orders' : filter === 'PROCESSING' ? 'In Transit' : 'Delivered'}
-                    </button>
-                  ))}
-                </div>
+                {orders.length > 0 && (
+                  <div className="flex items-center space-x-1.5 bg-[#0A111E] p-1 rounded-2xl border border-white/10">
+                    {(['ALL', 'PROCESSING', 'DELIVERED'] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setOrderFilter(filter)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          orderFilter === filter
+                            ? 'bg-[#D4AF37] text-[#070D18]'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {filter === 'ALL' ? 'All Orders' : filter === 'PROCESSING' ? 'In Progress' : 'Delivered'}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {filteredOrders.length === 0 ? (
-                <div className="bg-[#0A111E] border border-white/10 rounded-3xl p-12 text-center space-y-4">
+                <div className="bg-[#0A111E] border border-white/10 rounded-3xl p-12 text-center space-y-4 shadow-xl">
                   <ShoppingBag className="w-14 h-14 text-[#D4AF37]/30 mx-auto" />
-                  <p className="text-slate-300 font-bold">No orders found matching this filter.</p>
-                  <Link href="/#shop" className="inline-block px-6 py-2.5 rounded-xl bg-[#D4AF37] text-[#070D18] text-xs uppercase font-black">
+                  <h3 className="text-base font-bold text-white">No Orders Placed Yet</h3>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Your real roastery orders and live package tracking will appear here once you place an order.
+                  </p>
+                  <Link href="/#shop" className="inline-block px-6 py-2.5 rounded-xl bg-[#D4AF37] text-[#070D18] text-xs uppercase font-black shadow-md hover:scale-105 transition-transform">
                     Explore Cashew Catalog
                   </Link>
                 </div>
@@ -597,10 +696,12 @@ function DashboardContent() {
                       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
                         <div>
                           <p className="font-mono font-black text-[#D4AF37] text-base">#{order.orderId}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">Placed on {order.date}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Placed on {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent'}
+                          </p>
                         </div>
                         <div className="flex items-center space-x-3">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${STATUS_CONFIG[order.fulfillmentStatus]?.color} ${STATUS_CONFIG[order.fulfillmentStatus]?.badgeBg}`}>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${STATUS_CONFIG[order.fulfillmentStatus]?.color} ${STATUS_CONFIG[order.fulfillmentStatus]?.border} ${STATUS_CONFIG[order.fulfillmentStatus]?.badgeBg}`}>
                             {STATUS_CONFIG[order.fulfillmentStatus]?.label}
                           </span>
                           <span className="text-base font-black text-white">₹{order.totalAmount}/-</span>
@@ -627,13 +728,15 @@ function DashboardContent() {
                       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                         <div className="flex items-center space-x-2">
                           <button
+                            type="button"
                             onClick={() => { setSelectedTrackOrder(order); setActiveTab('track'); }}
                             className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 hover:text-[#D4AF37] flex items-center space-x-1.5 transition-colors"
                           >
                             <Truck className="w-3.5 h-3.5" />
-                            <span>Track Consignment</span>
+                            <span>Track Timeline</span>
                           </button>
                           <button
+                            type="button"
                             onClick={() => setInvoiceOrder(order)}
                             className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 hover:text-white flex items-center space-x-1.5 transition-colors"
                           >
@@ -643,6 +746,7 @@ function DashboardContent() {
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => handleReorder(order)}
                           className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B48328] text-[#070D18] font-black text-xs uppercase tracking-wider flex items-center space-x-1.5 shadow-md"
                         >
@@ -657,118 +761,306 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* ── TAB 3: LIVE TRACKING ── */}
+          {/* ── TAB 3: LIVE TRACKING & INTERACTIVE ORDER TIMELINE ── */}
           {activeTab === 'track' && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-black font-display text-white">Live Consignment Tracking</h2>
-                <p className="text-xs text-slate-400">Real-time status updates from Uppal Roastery to your doorstep</p>
-              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-black font-display text-white flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-[#D4AF37]" />
+                    <span>Live Consignment Timeline & Tracking</span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Track real-time roastery processing, sorting, and courier milestones</p>
+                </div>
 
-              {/* Order Selector Chips */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                {orders.map((o) => (
+                {orders.length > 0 && (
                   <button
-                    key={o._id || o.orderId}
-                    onClick={() => setSelectedTrackOrder(o)}
-                    className={`px-4 py-3 rounded-2xl text-xs font-bold text-left transition-all shrink-0 border ${
-                      selectedTrackOrder?.orderId === o.orderId
-                        ? 'bg-[#D4AF37] text-[#070D18] border-[#D4AF37] shadow-lg font-black'
-                        : 'bg-[#0A111E] text-slate-300 border-[#D4AF37]/20 hover:border-[#D4AF37]/50'
-                    }`}
+                    type="button"
+                    onClick={() => user?.email && fetchOrders(user.email, user.uid)}
+                    className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-[#D4AF37] flex items-center space-x-1.5"
                   >
-                    <p className="font-mono">#{o.orderId}</p>
-                    <p className="text-[10px] opacity-75 mt-0.5">{o.date} • ₹{o.totalAmount}</p>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Sync Status</span>
                   </button>
-                ))}
+                )}
               </div>
 
-              {selectedTrackOrder && (
-                <div className="bg-[#0A111E] border border-[#D4AF37]/30 rounded-3xl p-6 sm:p-8 space-y-8 shadow-2xl">
-                  
-                  {/* Summary Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
-                    <div>
-                      <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-widest">Tracking Consignment</span>
-                      <h3 className="text-2xl font-black font-display text-white mt-0.5">#{selectedTrackOrder.orderId}</h3>
-                      <p className="text-xs text-slate-400 mt-1">Booked on {selectedTrackOrder.date}</p>
+              {orders.length === 0 || !selectedTrackOrder ? (
+                /* Clean Empty State for Live Tracker */
+                <div className="bg-[#0A111E] border border-white/10 rounded-3xl p-12 text-center space-y-4 shadow-xl">
+                  <Truck className="w-14 h-14 text-[#D4AF37]/30 mx-auto" />
+                  <h3 className="text-base font-bold text-white">No Active Orders to Track</h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Place an order to activate live roastery processing stages, logistics consignment tracking, and estimated delivery dates.
+                  </p>
+                  <Link href="/#shop" className="inline-block px-6 py-2.5 rounded-xl bg-[#D4AF37] text-[#070D18] text-xs uppercase font-black shadow-md hover:scale-105 transition-transform">
+                    Start Shopping
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Order Selector Chips (if user has multiple orders) */}
+                  {orders.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                      {orders.map((o) => (
+                        <button
+                          key={o._id || o.orderId}
+                          type="button"
+                          onClick={() => setSelectedTrackOrder(o)}
+                          className={`px-4 py-3 rounded-2xl text-xs font-bold text-left transition-all shrink-0 border ${
+                            selectedTrackOrder?.orderId === o.orderId
+                              ? 'bg-[#D4AF37] text-[#070D18] border-[#D4AF37] shadow-lg font-black'
+                              : 'bg-[#0A111E] text-slate-300 border-[#D4AF37]/20 hover:border-[#D4AF37]/50'
+                          }`}
+                        >
+                          <p className="font-mono">#{o.orderId}</p>
+                          <p className="text-[10px] opacity-75 mt-0.5">
+                            {o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : 'Recent'} • ₹{o.totalAmount}
+                          </p>
+                        </button>
+                      ))}
                     </div>
+                  )}
 
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400">Estimated Delivery Date</p>
-                      <p className="text-base font-black text-[#D4AF37]">{selectedTrackOrder.estimatedDelivery || 'Within 24-48 Hours'}</p>
-                    </div>
-                  </div>
-
-                  {/* Courier Card */}
-                  <div className="bg-[#070D18] border border-[#D4AF37]/20 rounded-2xl p-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center border border-[#D4AF37]/30">
-                        <Truck className="w-5 h-5" />
-                      </div>
+                  {/* Master Tracking Card */}
+                  <div className="bg-[#0A111E] border border-[#D4AF37]/30 rounded-3xl p-6 sm:p-8 space-y-8 shadow-2xl">
+                    
+                    {/* Summary Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
                       <div>
-                        <p className="text-xs font-black text-white">{selectedTrackOrder.courierPartner || 'SVT Roastery Express Courier'}</p>
-                        <p className="text-[11px] text-slate-400 font-mono">Waybill: {selectedTrackOrder.trackingNumber || 'SVT-HYD-LOCAL'}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-widest">Active Order Tracking</span>
+                          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${STATUS_CONFIG[selectedTrackOrder.fulfillmentStatus]?.color} ${STATUS_CONFIG[selectedTrackOrder.fulfillmentStatus]?.border} ${STATUS_CONFIG[selectedTrackOrder.fulfillmentStatus]?.badgeBg}`}>
+                            {STATUS_CONFIG[selectedTrackOrder.fulfillmentStatus]?.label}
+                          </span>
+                        </div>
+                        <h3 className="text-2xl sm:text-3xl font-black font-display text-white mt-1">#{selectedTrackOrder.orderId}</h3>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Placed on {selectedTrackOrder.createdAt ? new Date(selectedTrackOrder.createdAt).toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400">Total Order Amount</p>
+                        <p className="text-xl font-black text-[#D4AF37]">₹{selectedTrackOrder.totalAmount}/-</p>
+                        <p className="text-[11px] text-emerald-400 font-bold">{selectedTrackOrder.paymentMethod} • {selectedTrackOrder.paymentStatus}</p>
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => copyCoupon(selectedTrackOrder.trackingNumber || selectedTrackOrder.orderId)}
-                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold border border-white/10 flex items-center space-x-1"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>{copied ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
+                    {/* Interactive Horizontal Milestone Bar */}
+                    <div className="py-2">
+                      <div className="relative">
+                        {/* Connecting track line */}
+                        <div className="hidden sm:block absolute top-1/2 left-6 right-6 h-1 bg-slate-800 -translate-y-1/2 z-0" />
+                        <div 
+                          className="hidden sm:block absolute top-1/2 left-6 h-1 bg-gradient-to-r from-[#D4AF37] to-[#F3E5AB] -translate-y-1/2 z-0 transition-all duration-500 shadow-[0_0_10px_rgba(212,175,55,0.6)]"
+                          style={{
+                            width: `${(getTimelineIndex(selectedTrackOrder.fulfillmentStatus) / (ORDER_MILESTONES.length - 1)) * 88}%`
+                          }}
+                        />
 
-                  {/* Step Progress Timeline */}
-                  <div className="relative pl-6 space-y-0 max-w-xl mx-auto">
-                    {ORDER_TIMELINE.map((step, idx) => {
-                      const currentStep = getTimelineStep(selectedTrackOrder.fulfillmentStatus);
-                      const isDone = idx <= currentStep;
-                      const isCurrent = idx === currentStep;
-                      const Icon = step.icon;
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 relative z-10">
+                          {ORDER_MILESTONES.map((step, idx) => {
+                            const currentIdx = getTimelineIndex(selectedTrackOrder.fulfillmentStatus);
+                            const isDone = idx <= currentIdx;
+                            const isCurrent = idx === currentIdx;
+                            const Icon = step.icon;
 
-                      return (
-                        <div key={step.key} className="relative flex items-start space-x-5 pb-8 last:pb-0">
-                          {/* Vertical Connector Line */}
-                          {idx < ORDER_TIMELINE.length - 1 && (
-                            <div className={`absolute left-[-15px] top-7 w-0.5 h-full ${isDone ? 'bg-[#D4AF37]' : 'bg-slate-800'}`} />
-                          )}
+                            return (
+                              <div
+                                key={step.key}
+                                className={`flex sm:flex-col items-center sm:text-center p-3 rounded-2xl transition-all ${
+                                  isCurrent
+                                    ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/40 shadow-lg'
+                                    : isDone
+                                    ? 'bg-white/5 sm:bg-transparent'
+                                    : 'opacity-40'
+                                }`}
+                              >
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 shrink-0 sm:mb-2 transition-all mr-3 sm:mr-0 ${
+                                  isDone
+                                    ? 'bg-[#D4AF37] border-[#D4AF37] text-[#070D18] shadow-[0_0_15px_rgba(212,175,55,0.7)]'
+                                    : 'bg-[#0A111E] border-slate-700 text-slate-500'
+                                }`}>
+                                  <Icon className="w-5 h-5" />
+                                </div>
 
-                          {/* Step Badge */}
-                          <div className={`absolute left-[-24px] top-0.5 w-7 h-7 rounded-full flex items-center justify-center border-2 shrink-0 transition-all ${
-                            isDone 
-                              ? 'bg-[#D4AF37] border-[#D4AF37] text-[#070D18] shadow-[0_0_15px_rgba(212,175,55,0.7)]' 
-                              : 'bg-[#0A111E] border-slate-700 text-slate-600'
-                          }`}>
-                            <Icon className="w-3.5 h-3.5" />
+                                <div>
+                                  <p className={`text-xs font-black ${isCurrent ? 'text-[#D4AF37]' : isDone ? 'text-white' : 'text-slate-400'}`}>
+                                    {step.label}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{step.desc}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Courier Waybill Information Card */}
+                    <div className="bg-[#070D18] border border-[#D4AF37]/20 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-12 h-12 rounded-2xl bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center border border-[#D4AF37]/30 shrink-0">
+                          <Truck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-wider">Logistics Partner</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono">Express Delivery</span>
                           </div>
+                          <p className="text-sm font-black text-white mt-0.5">
+                            {selectedTrackOrder.courierPartner || 'SVT Roastery Express Dispatch'}
+                          </p>
+                          <p className="text-xs text-slate-400 font-mono mt-0.5">
+                            Consignment Waybill: <strong className="text-[#D4AF37]">{selectedTrackOrder.trackingNumber || 'SVT-HYD-LOCAL'}</strong>
+                          </p>
+                        </div>
+                      </div>
 
-                          <div className={`pt-0.5 ${isCurrent ? 'opacity-100' : isDone ? 'opacity-90' : 'opacity-40'}`}>
-                            <div className="flex items-center gap-2">
-                              <p className={`text-sm font-black ${isCurrent ? 'text-[#D4AF37]' : isDone ? 'text-white' : 'text-slate-500'}`}>
-                                {step.label}
-                              </p>
-                              {isCurrent && (
-                                <span className="px-2 py-0.5 rounded-full bg-[#D4AF37] text-[#070D18] text-[9px] font-black uppercase tracking-wider animate-pulse">
-                                  Current Status
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => copyText(selectedTrackOrder.trackingNumber || selectedTrackOrder.orderId)}
+                          className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold border border-white/10 flex items-center space-x-1.5 transition-colors"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>{copied === (selectedTrackOrder.trackingNumber || selectedTrackOrder.orderId) ? 'Copied!' : 'Copy Waybill'}</span>
+                        </button>
+
+                        <a
+                          href={`https://wa.me/919515273464?text=Hello%20SVT%20Team,%20please%20update%20me%20on%20Order%20${selectedTrackOrder.orderId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center space-x-1.5 transition-colors"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>WhatsApp Update</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Detailed Timeline Audit Log */}
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <h4 className="text-xs font-black text-[#D4AF37] uppercase tracking-wider flex items-center gap-1.5">
+                          <Clock className="w-4 h-4 text-[#D4AF37]" />
+                          <span>Fulfillment Audit Log & Status History</span>
+                        </h4>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {selectedTrackOrder.timeline?.length || 1} Milestone Event(s)
+                        </span>
+                      </div>
+
+                      <div className="relative pl-6 space-y-6 max-w-2xl mx-auto pt-2">
+                        {(selectedTrackOrder.timeline && selectedTrackOrder.timeline.length > 0
+                          ? selectedTrackOrder.timeline
+                          : [
+                              {
+                                status: selectedTrackOrder.fulfillmentStatus,
+                                title: STATUS_CONFIG[selectedTrackOrder.fulfillmentStatus]?.label || 'Order Status Updated',
+                                description: 'Order logged into Uppal roastery database.',
+                                timestamp: selectedTrackOrder.createdAt || new Date(),
+                              }
+                            ]
+                        ).map((event, idx, arr) => (
+                          <div key={idx} className="relative flex items-start space-x-4">
+                            {/* Vertical line connecting events */}
+                            {idx < arr.length - 1 && (
+                              <div className="absolute left-[-15px] top-6 w-0.5 h-full bg-[#D4AF37]/30" />
+                            )}
+
+                            {/* Badge */}
+                            <div className="absolute left-[-22px] top-1 w-4 h-4 rounded-full bg-[#D4AF37] border-2 border-[#0B1323] shadow-[0_0_8px_rgba(212,175,55,0.8)]" />
+
+                            <div className="space-y-1 bg-[#070D18] p-4 rounded-2xl border border-white/5 w-full shadow-md">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <h5 className="text-xs font-black text-white">{event.title}</h5>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {event.timestamp
+                                    ? new Date(event.timestamp).toLocaleDateString('en-IN', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })
+                                    : 'Recent'}
                                 </span>
+                              </div>
+                              <p className="text-[11px] text-slate-300 leading-relaxed">{event.description}</p>
+                              {event.trackingNumber && (
+                                <p className="text-[10px] text-[#D4AF37] font-mono font-bold pt-1">
+                                  Waybill: {event.trackingNumber} ({event.courierPartner || 'Courier'})
+                                </p>
                               )}
                             </div>
-                            <p className="text-xs text-slate-400 mt-1">{step.desc}</p>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        ))}
+                      </div>
+                    </div>
 
+                    {/* Delivery Destination & Summary Card */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-white/10">
+                      <div className="bg-[#070D18] p-4 rounded-2xl border border-white/5 space-y-2 text-xs">
+                        <p className="font-bold text-[#D4AF37] uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>Delivery Address</span>
+                        </p>
+                        <p className="font-bold text-white">{selectedTrackOrder.customerDetails.name}</p>
+                        <p className="text-slate-400 font-mono">{selectedTrackOrder.customerDetails.phone}</p>
+                        <p className="text-slate-300">
+                          {selectedTrackOrder.customerDetails.address}, {selectedTrackOrder.customerDetails.colony}, {selectedTrackOrder.customerDetails.city} - {selectedTrackOrder.customerDetails.pincode}
+                        </p>
+                      </div>
+
+                      <div className="bg-[#070D18] p-4 rounded-2xl border border-white/5 space-y-2 text-xs">
+                        <p className="font-bold text-[#D4AF37] uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>Package Contents ({selectedTrackOrder.items.length} SKUs)</span>
+                        </p>
+                        <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
+                          {selectedTrackOrder.items.map((it, idx) => (
+                            <div key={idx} className="flex justify-between text-slate-300">
+                              <span>{it.quantity}x {it.title} ({it.size})</span>
+                              <span className="font-mono font-bold text-[#D4AF37]">₹{it.price * it.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* ── TAB 4: COUPONS ── */}
+          {/* ── TAB 4: NOTIFICATIONS ── */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-black font-display text-white flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-[#D4AF37]" />
+                  <span>Your Order & Harvest Notifications</span>
+                </h2>
+                <p className="text-xs text-slate-400">Real-time alerts regarding your consignments, discount codes, and fresh roasts</p>
+              </div>
+
+              <div className="bg-[#0A111E] border border-[#D4AF37]/20 rounded-3xl p-6 shadow-xl space-y-4">
+                <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                  <span className="text-xs font-bold text-slate-300">In-App Notification Center</span>
+                  <Link href="/dashboard?tab=track" className="text-xs text-[#D4AF37] font-bold hover:underline">
+                    View Tracking Timeline →
+                  </Link>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Click the Notification Bell in the top-right suite header or open your live consignment tracker to check real-time package updates.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 5: COUPONS ── */}
           {activeTab === 'coupons' && (
             <div className="space-y-6">
               <div>
@@ -776,53 +1068,64 @@ function DashboardContent() {
                 <p className="text-xs text-slate-400">Exclusive discount vouchers tailored for our valued members</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {coupons.map((coupon) => (
-                  <div
-                    key={coupon.code}
-                    className="bg-[#0A111E] rounded-3xl overflow-hidden border border-[#D4AF37]/30 shadow-xl space-y-0"
-                  >
-                    <div className="bg-gradient-to-r from-[#0D1527] to-[#141E30] px-6 py-5 border-b border-dashed border-[#D4AF37]/30">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <span className="text-3xl font-black text-[#D4AF37]">{coupon.discountPercent}% OFF</span>
-                          <p className="text-xs text-slate-400 mt-1 font-semibold">Min order value: ₹{coupon.minOrderAmount}</p>
+              {coupons.length === 0 ? (
+                <div className="bg-[#0A111E] border border-white/10 rounded-3xl p-12 text-center space-y-4 shadow-xl">
+                  <Ticket className="w-14 h-14 text-[#D4AF37]/30 mx-auto" />
+                  <h3 className="text-base font-bold text-white">No Active Coupons Right Now</h3>
+                  <p className="text-xs text-slate-400">Special seasonal discount codes will be announced here.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {coupons.map((coupon) => (
+                    <div
+                      key={coupon.code}
+                      className="bg-[#0A111E] rounded-3xl overflow-hidden border border-[#D4AF37]/30 shadow-xl space-y-0"
+                    >
+                      <div className="bg-gradient-to-r from-[#0D1527] to-[#141E30] px-6 py-5 border-b border-dashed border-[#D4AF37]/30">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <span className="text-3xl font-black text-[#D4AF37]">
+                              {coupon.discountType === 'FLAT' ? `₹${coupon.flatAmount} FLAT` : `${coupon.discountPercent}% OFF`}
+                            </span>
+                            <p className="text-xs text-slate-400 mt-1 font-semibold">Min order value: ₹{coupon.minOrderAmount || 500}</p>
+                          </div>
+                          <Ticket className="w-9 h-9 text-[#D4AF37]/30" />
                         </div>
-                        <Ticket className="w-9 h-9 text-[#D4AF37]/30" />
-                      </div>
-                    </div>
-
-                    <div className="p-6 space-y-4">
-                      <p className="text-xs text-slate-300 leading-relaxed">{coupon.description}</p>
-                      
-                      <div className="flex items-center justify-between bg-[#070D18] p-2 rounded-2xl border border-dashed border-[#D4AF37]/40">
-                        <span className="font-mono font-black text-sm text-[#D4AF37] px-2">{coupon.code}</span>
-                        <button
-                          onClick={() => copyCoupon(coupon.code)}
-                          className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
-                            copied === coupon.code
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-[#D4AF37] text-[#070D18] hover:brightness-110'
-                          }`}
-                        >
-                          {copied === coupon.code ? '✓ Copied' : 'Copy Code'}
-                        </button>
                       </div>
 
-                      {coupon.expiresAt && (
-                        <p className="text-[10px] text-slate-500 flex items-center space-x-1.5">
-                          <Clock className="w-3 h-3" />
-                          <span>Valid through {coupon.expiresAt}</span>
-                        </p>
-                      )}
+                      <div className="p-6 space-y-4">
+                        <p className="text-xs text-slate-300 leading-relaxed">{coupon.description || 'Exclusive offer on supreme cashews.'}</p>
+                        
+                        <div className="flex items-center justify-between bg-[#070D18] p-2 rounded-2xl border border-dashed border-[#D4AF37]/40">
+                          <span className="font-mono font-black text-sm text-[#D4AF37] px-2">{coupon.code}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyText(coupon.code)}
+                            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                              copied === coupon.code
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-[#D4AF37] text-[#070D18] hover:brightness-110'
+                            }`}
+                          >
+                            {copied === coupon.code ? '✓ Copied' : 'Copy Code'}
+                          </button>
+                        </div>
+
+                        {coupon.expiresAt && (
+                          <p className="text-[10px] text-slate-500 flex items-center space-x-1.5">
+                            <Clock className="w-3 h-3" />
+                            <span>Valid through {coupon.expiresAt}</span>
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* ── TAB 5: INVOICES ── */}
+          {/* ── TAB 6: INVOICES ── */}
           {activeTab === 'invoices' && (
             <div className="space-y-6">
               <div>
@@ -831,9 +1134,15 @@ function DashboardContent() {
               </div>
 
               {orders.length === 0 ? (
-                <div className="bg-[#0A111E] border border-white/10 rounded-3xl p-12 text-center space-y-4">
+                <div className="bg-[#0A111E] border border-white/10 rounded-3xl p-12 text-center space-y-4 shadow-xl">
                   <Printer className="w-14 h-14 text-[#D4AF37]/30 mx-auto" />
-                  <p className="text-slate-300">No invoices generated yet.</p>
+                  <h3 className="text-base font-bold text-white">No Tax Invoices Generated Yet</h3>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Verified GST tax bills are automatically created once you complete an order checkout.
+                  </p>
+                  <Link href="/#shop" className="inline-block px-6 py-2.5 rounded-xl bg-[#D4AF37] text-[#070D18] text-xs uppercase font-black shadow-md hover:scale-105 transition-transform">
+                    Shop Products
+                  </Link>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -844,14 +1153,17 @@ function DashboardContent() {
                     >
                       <div className="space-y-1">
                         <p className="font-mono font-black text-[#D4AF37] text-base">#{order.orderId}</p>
-                        <p className="text-xs text-slate-400">{order.date} • Total ₹{order.totalAmount} • {order.paymentMethod} ({order.paymentStatus})</p>
+                        <p className="text-xs text-slate-400">
+                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'Recent'} • Total ₹{order.totalAmount} • {order.paymentMethod} ({order.paymentStatus})
+                        </p>
                       </div>
 
                       <div className="flex items-center space-x-3">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${STATUS_CONFIG[order.fulfillmentStatus]?.color} ${STATUS_CONFIG[order.fulfillmentStatus]?.badgeBg}`}>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${STATUS_CONFIG[order.fulfillmentStatus]?.color} ${STATUS_CONFIG[order.fulfillmentStatus]?.border} ${STATUS_CONFIG[order.fulfillmentStatus]?.badgeBg}`}>
                           {STATUS_CONFIG[order.fulfillmentStatus]?.label}
                         </span>
                         <button
+                          type="button"
                           onClick={() => setInvoiceOrder(order)}
                           className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B48328] text-[#070D18] font-black text-xs uppercase tracking-wider flex items-center space-x-1.5 shadow-md"
                         >
@@ -866,7 +1178,7 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* ── TAB 6: PROFILE & ADDRESS ── */}
+          {/* ── TAB 7: PROFILE & ADDRESS ── */}
           {activeTab === 'profile' && (
             <div className="space-y-6">
               <div>
@@ -946,7 +1258,7 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* ── TAB 7: WISHLIST ── */}
+          {/* ── TAB 8: WISHLIST ── */}
           {activeTab === 'wishlist' && (
             <div className="space-y-6">
               <div>
@@ -993,16 +1305,20 @@ function DashboardContent() {
               <div className="text-right">
                 <p className="text-sm font-black text-[#B48328]">ORIGINAL TAX INVOICE</p>
                 <p className="text-xs font-mono font-bold text-slate-800">#{invoiceOrder.orderId}</p>
-                <p className="text-[11px] text-slate-600">Date: {invoiceOrder.date}</p>
+                <p className="text-[11px] text-slate-600">
+                  Date: {invoiceOrder.createdAt ? new Date(invoiceOrder.createdAt).toLocaleDateString('en-IN') : 'Recent'}
+                </p>
               </div>
             </div>
 
             {/* Billed To */}
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-1">
               <p className="font-black text-slate-900 uppercase text-[10px] tracking-wider">Customer Details:</p>
-              <p className="font-bold text-slate-900">{displayName}</p>
-              <p className="text-slate-600">{user.email}</p>
-              <p className="text-slate-600">1-53/6 Surya Nagar Colony, Uppal, Hyderabad - 500039</p>
+              <p className="font-bold text-slate-900">{invoiceOrder.customerDetails?.name || displayName}</p>
+              <p className="text-slate-600">{invoiceOrder.customerDetails?.email || user.email}</p>
+              <p className="text-slate-600">
+                {invoiceOrder.customerDetails?.address}, {invoiceOrder.customerDetails?.colony || ''}, {invoiceOrder.customerDetails?.city || 'Hyderabad'} - {invoiceOrder.customerDetails?.pincode || '500039'}
+              </p>
             </div>
 
             {/* Table */}

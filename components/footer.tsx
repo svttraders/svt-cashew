@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import VinayakaLogo from '@/components/vinayaka-logo';
 import { MapPin, Phone, Mail, Award, ShieldCheck, Clock, ArrowUpRight } from 'lucide-react';
 import { DirectFarmIllustration, QualityAssuredIllustration } from '@/components/illustrations';
 
@@ -15,14 +15,7 @@ export default function Footer() {
           {/* Col 1: Brand & Origin */}
           <div className="space-y-4">
             <Link href="/" className="inline-block group">
-              <div className="relative h-12 w-48 overflow-hidden">
-                <Image
-                  src="/images/footer-logo.webp"
-                  alt="Sidhi Vinayaka Traders - Premium Cashews Uppal"
-                  fill
-                  className="object-contain"
-                />
-              </div>
+              <VinayakaLogo iconSize={44} layout="horizontal" />
             </Link>
             <p className="text-xs text-slate-400 leading-relaxed">
               Direct processing and wholesale distribution hub in Uppal, Hyderabad. Supplying supreme quality King Jumbo W180 and gourmet oven-roasted flavoured cashews across India.

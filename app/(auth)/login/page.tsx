@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import VinayakaLogo from '@/components/vinayaka-logo';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
@@ -132,16 +133,8 @@ export default function LoginPage() {
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-navy-900 via-[#D4AF37] to-navy-900" />
 
         <div className="text-center space-y-2 pt-2">
-          <Link href="/" className="inline-block">
-            <div className="relative h-12 w-48 mx-auto overflow-hidden">
-              <Image
-                src="/images/footer-logo.webp"
-                alt="Sidhi Vinayaka Traders Logo"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
+          <Link href="/" className="inline-block hover:scale-102 transition-transform">
+            <VinayakaLogo iconSize={48} layout="vertical" />
           </Link>
           <h1 className="text-2xl font-bold font-heading text-white flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4 text-[#D4AF37]" />

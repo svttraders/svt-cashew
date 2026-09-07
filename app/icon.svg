@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 550" fill="none">
+  <defs>
+    <linearGradient id="svtFaviconGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF5D6" />
+      <stop offset="35%" stop-color="#F2CB60" />
+      <stop offset="70%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#9E6E14" />
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#14243B" />
+      <stop offset="100%" stop-color="#070D18" />
+    </radialGradient>
+  </defs>
+
+  <rect width="500" height="550" rx="120" fill="url(#bgGlow)" />
+  <rect x="15" y="15" width="470" height="520" rx="105" stroke="url(#svtFaviconGold)" stroke-width="6" fill="none" opacity="0.4" />
+
+  <g stroke="url(#svtFaviconGold)" stroke-linecap="round" stroke-linejoin="round" transform="translate(0, 10)">
+    <path d="M 250 75 C 247 62 250 50 250 50 C 250 50 253 62 250 75 Z" stroke-width="7" fill="none" />
+    <circle cx="250" cy="45" r="5" fill="url(#svtFaviconGold)" stroke="none" />
+    
+    <path d="M 235 90 C 242 80 258 80 265 90" stroke-width="6" fill="none" />
+    <path d="M 232 92 C 230 115 270 115 268 92" stroke-width="6" fill="none" />
+    <path d="M 250 94 L 250 110" stroke-width="5" />
+
+    <path d="M 250 116 C 244 125 244 135 250 144 C 256 135 256 125 250 116 Z" stroke-width="6" fill="none" />
+
+    <path d="M 230 115 C 220 95 190 100 195 125 C 200 140 220 142 232 145" stroke-width="6" fill="none" />
+    <path d="M 270 115 C 280 95 310 100 305 125 C 300 140 280 142 268 145" stroke-width="6" fill="none" />
+
+    <path d="M 190 155 C 220 142 280 142 310 155" stroke-width="7" fill="none" />
+    <path d="M 200 168 C 225 156 275 156 300 168" stroke-width="6" fill="none" />
+    <path d="M 212 180 C 230 170 270 170 288 180" stroke-width="6" fill="none" />
+
+    <circle cx="250" cy="158" r="5" fill="url(#svtFaviconGold)" stroke="none" />
+    <circle cx="218" cy="164" r="4" fill="url(#svtFaviconGold)" stroke="none" />
+    <circle cx="282" cy="164" r="4" fill="url(#svtFaviconGold)" stroke="none" />
+
+    <path d="M 243 205 C 243 198 257 198 257 205 C 257 212 243 212 243 205 Z" stroke-width="5.5" fill="none" />
+    <path d="M 250 216 C 244 226 244 236 250 244 C 256 236 256 226 250 216 Z" stroke-width="5.5" fill="none" />
+
+    <path d="M 148 195 L 202 188 C 205 240 216 295 248 340" stroke-width="7.5" fill="none" />
+    <path d="M 148 195 C 158 240 185 275 220 285" stroke-width="7.5" fill="none" />
+    <path d="M 220 285 C 235 305 242 318 220 320" stroke-width="6" fill="none" />
+
+    <path d="M 352 195 L 298 188 C 295 240 284 295 252 340" stroke-width="7.5" fill="none" />
+    <path d="M 352 195 C 342 240 315 275 280 285" stroke-width="7.5" fill="none" />
+    <path d="M 280 285 C 265 305 258 318 280 320" stroke-width="6" fill="none" />
+
+    <path d="M 202 188 C 206 255 212 320 250 375 C 285 425 345 440 370 415 C 395 390 395 335 348 305 C 300 275 292 230 298 188" stroke-width="8" fill="none" />
+    <path d="M 248 340 C 275 390 325 410 350 392 C 372 376 372 342 340 325 C 315 312 300 330 312 350 C 322 365 348 360 352 342" stroke-width="7.5" fill="none" />
+    <path d="M 250 375 C 275 420 315 440 340 435 C 370 430 388 400 380 370 C 372 345 350 340 335 355 C 325 365 330 380 345 385" stroke-width="7" fill="none" />
+  </g>
+</svg>
